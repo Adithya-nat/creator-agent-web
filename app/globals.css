@@ -1,0 +1,98 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  @apply bg-base text-ink font-sans antialiased;
+  overflow-x: hidden;
+}
+
+@layer components {
+  /* Deep cinematic backdrop: base black + two soft aurora pools the 3D sits over. */
+  .bg-aurora {
+    background:
+      radial-gradient(
+        1200px 800px at 72% -12%,
+        rgba(124, 58, 237, 0.2),
+        transparent 60%
+      ),
+      radial-gradient(
+        1000px 720px at 8% 112%,
+        rgba(34, 211, 238, 0.16),
+        transparent 60%
+      ),
+      #07080d;
+  }
+
+  /* Frosted translucent panel. */
+  .glass {
+    @apply rounded-2xl border border-line bg-surface/60 backdrop-blur-xl;
+  }
+
+  .glass-2 {
+    @apply rounded-xl border border-line bg-surface-2/60 backdrop-blur-md;
+  }
+
+  /* Gradient text for the wordmark + accents. */
+  .text-gradient {
+    @apply bg-gradient-to-r from-brand-cyan via-brand-violet to-brand-pink bg-clip-text text-transparent;
+  }
+
+  .scroll-thin::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .scroll-thin::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+  }
+  .scroll-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+/* Very subtle film grain over everything (sits above 3D, below modals). */
+.grain::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 30;
+  opacity: 0.045;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+::selection {
+  background: rgba(34, 211, 238, 0.3);
+}
+
+:focus-visible {
+  outline: 2px solid rgba(34, 211, 238, 0.7);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Respect reduced motion globally: neutralize CSS animations/transitions. The
+   3D layers separately swap to a static fallback (see usePrefersReducedMotion). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .grain::after {
+    display: none;
+  }
+}
