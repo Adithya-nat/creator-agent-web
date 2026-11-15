@@ -25,7 +25,7 @@ export default function RetrievePage() {
         </h1>
         <p className="mt-2 text-muted">
           Paste the job ID you saved. Jobs are kept for{" "}
-          <span className="text-ink">1 hour</span> after creation.
+          <span className="text-ink">24 hours</span> after creation.
         </p>
 
         <form
@@ -42,25 +42,25 @@ export default function RetrievePage() {
             aria-label="Job ID"
             spellCheck={false}
             autoComplete="off"
-            className="flex-1 rounded-full border border-line bg-surface/60 px-4 py-2.5 font-mono text-sm text-ink placeholder:text-muted/60 backdrop-blur-md focus:border-brand-cyan/50 focus:outline-none"
+            className="flex-1 rounded-full border border-line bg-surface/60 px-4 py-2.5 font-mono text-sm text-ink placeholder:text-muted/60 backdrop-blur-md focus:border-accent/50 focus:outline-none"
           />
           <button
             type="submit"
             disabled={!id.trim()}
-            className="rounded-full bg-gradient-to-r from-brand-cyan to-brand-violet px-6 py-2.5 text-sm font-medium text-white shadow-glow transition-all hover:shadow-glow-violet disabled:opacity-40"
+            className="rounded-full bg-accent px-6 py-2.5 text-sm font-medium text-midnight press hover:bg-accent-hover disabled:opacity-40"
           >
             Open
           </button>
         </form>
 
         <div className="mt-12">
-          <h2 className="mb-3 text-sm uppercase tracking-wider text-muted">
+          <h2 className="mb-3 font-display text-xl font-semibold text-ink">
             Recent on this device
           </h2>
           {jobs.length === 0 ? (
             <p className="text-sm text-muted">
               Nothing yet. Generations you start on this device show up here for
-              an hour.
+              24 hours.
             </p>
           ) : (
             <ul className="space-y-2">

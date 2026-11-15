@@ -26,6 +26,7 @@ export type StageStatus =
   | "succeeded"
   | "failed"
   | "degraded"
+  | "skipped"
   | "interrupted";
 
 export interface StageRef {
@@ -36,6 +37,7 @@ export interface StageRef {
   progress_current: number | null;
   progress_total: number | null;
   tokens: number | null;
+  cost_usd?: number | null;
   started_at: string | null;
   ended_at: string | null;
 }
@@ -69,11 +71,23 @@ export interface JobStatusResponse {
   total_tokens: number;
   prompt_tokens: number;
   output_tokens: number;
+  cost_usd?: number;
+  style?: StoryStyle;
+  language?: Language;
   // Ordered pipeline stage names for THIS job (includes "motion" only when the
   // motion engine is enabled). Absent on older servers -> fall back to STAGE_ORDER.
   pipeline?: string[];
   stages: StageRef[];
   artifacts: ArtifactRef[];
+  // Set when the film stopped for missing AI clips and can finish with stills.
+  video_gap?: VideoGap | null;
+}
+
+export interface VideoGap {
+  ready: number;
+  total: number;
+  missing: number[];
+  reason: "blocked" | "unavailable";
 }
 
 export interface JobCreatedResponse {
@@ -87,9 +101,21 @@ export interface LogsResponse {
   next_after: number;
 }
 
+export interface SceneLine {
+  speaker: string;
+  text: string;
+  delivery: string;
+}
+
+export type SceneVoice = "narrator" | "on_camera" | "off_screen" | "silent";
+
 export interface StoryboardScene {
   order: number;
-  narration: string;
+  narration: string; // the on-screen caption actually used
+  mode?: "narration" | "dialogue";
+  lines?: SceneLine[];
+  transcript?: string;
+  voice?: SceneVoice;
   frame_url: string | null;
   // Per-scene motion clip (motion engine). null => show the still frame_url.
   // The UI plays this with frame_url as the poster/fallback.
@@ -129,8 +155,91 @@ export interface StoryboardContent {
   style_ref_url: string | null;
   total_tokens: number;
   narrated: boolean;
+  story_style?: StoryStyle;
+  language?: Language;
+  cover_url?: string | null;
+  cost_usd?: number;
+  cast?: CastMember[];
   motion_coverage?: MotionCoverage | null;
   scenes: StoryboardScene[];
+}
+
+export interface CastMember {
+  name: string;
+  look: string;
+  voice_description: string;
+  portrait_url: string | null;
+}
+
+export type StoryStyle = "narrated" | "dialogue" | "mixed";
+export type Language = "en" | "ta";
+
+export interface PlatformPost {
+  caption: string;
+  hashtags: string[];
+}
+
+export interface PublishKit {
+  title: string;
+  hook: string;
+  tiktok: PlatformPost;
+  reels: PlatformPost;
+  shorts: PlatformPost;
+  cover_order: number;
+}
+
+export interface BudgetStatus {
+  month_spent_usd: number;
+  cap_usd: number;
+  remaining_usd: number;
+  warn: boolean;
+  over: boolean;
+  mode: string;
+  estimates: Record<StoryStyle, Record<"30" | "60", number>>;
+  videos_left: Record<string, number>;
+}
+
+export interface RunRow {
+  job_id: string;
+  prompt: string;
+  style: StoryStyle;
+  language: Language;
+  duration: number;
+  status: string;
+  cost_usd: number;
+  cost_by_category: Record<string, number>;
+  total_tokens: number;
+  video_seconds: number;
+  images: number;
+  scenes: number;
+  omni_scenes: number;
+  fallback_scenes: number;
+  judge_score: number | null;
+  runtime_seconds: number;
+  models: string[];
+  started_at: string | null;
+  finished_at: string | null;
+}
+
+export type UsageRange = "7d" | "30d" | "month" | "all";
+
+export interface UsageSummary {
+  range: UsageRange;
+  runs: number;
+  completed_runs: number;
+  success_rate: number;
+  total_cost_usd: number;
+  avg_cost_per_run: number;
+  avg_cost_per_second: number;
+  avg_runtime_seconds: number;
+  avg_judge_score: number | null;
+  omni_share: number;
+  by_category: Record<string, number>;
+  by_model: Record<string, number>;
+  by_provider: Record<string, number>;
+  by_day: Array<{ date: string; total: number } & Record<string, number | string>>;
+  avg_cost_by_style_duration: Record<string, number>;
+  by_language: Record<string, number>;
 }
 
 export type Duration = 30 | 60;
@@ -141,8 +250,12 @@ export const STAGE_LABELS: Record<string, string> = {
   reflection: "Refining the story",
   designer: "Designing the look",
   image_gen: "Generating frames",
-  motion: "Animating the frames",
+  narration: "Recording the narrator",
+  motion: "Filming scenes with AI video",
+  captions: "Syncing dialogue captions",
+  music: "Composing the score",
   assembler: "Assembling the film",
+  publish_kit: "Writing post captions",
 };
 
 // Fallback order used only when a job has no `pipeline` (old server / pre-first
@@ -152,5 +265,10 @@ export const STAGE_ORDER = [
   "reflection",
   "designer",
   "image_gen",
+  "narration",
+  "motion",
+  "captions",
+  "music",
   "assembler",
+  "publish_kit",
 ];

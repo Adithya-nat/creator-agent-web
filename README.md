@@ -1,9 +1,10 @@
 # Storyboard Agent — Frontend
 
-A modern, login-free web UI for the **storyboard_agent** backend (a companion project,
-published as a separate repo). Describe a story, watch it generate live (each pipeline stage with expandable logs),
-then play and download the finished vertical short. Built with **Next.js (App Router) +
-React Three Fiber** for a cinematic, motion-forward feel.
+The web app for **storyboard_agent**: write one line, pick a story style (Dialogue, Mixed, Narrated)
+and language (English or Tamil), watch each stage live, then download the film, cover and post copy.
+A Usage page tracks AI spend per run against your monthly budget. Setup for all repos:
+[storyboard_agent/SETUP.md](../storyboard_agent/SETUP.md). Built with Next.js 16, React 19, Tailwind 4,
+React Three Fiber 9 and Recharts.
 
 ## Surfaces
 

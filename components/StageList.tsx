@@ -1,10 +1,10 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { LogStream } from "@/components/LogStream";
 import { Spinner } from "@/components/Spinner";
-import { formatElapsed, formatTokens } from "@/lib/format";
+import { formatElapsed, formatTokens, formatUSD } from "@/lib/format";
 import { JOB_LOG_KEY } from "@/hooks/useJobStream";
 import {
   STAGE_LABELS,
@@ -17,14 +17,14 @@ import {
 type RowStatus = StageStatus;
 
 // Stages that report live X/total progress, with the noun to show.
-const PROGRESS_NOUN: Record<string, string> = { image_gen: "frames", motion: "clips" };
+const PROGRESS_NOUN: Record<string, string> = { image_gen: "frames", motion: "AI clips" };
 
 function StageIcon({ status }: { status: RowStatus }) {
   const base =
     "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs";
   switch (status) {
     case "running":
-      return <Spinner className="h-5 w-5 text-brand-cyan" />;
+      return <Spinner className="h-5 w-5 text-accent" />;
     case "succeeded":
       return (
         <span className={`${base} bg-state-ok/15 text-state-ok`}>✓</span>
@@ -33,6 +33,8 @@ function StageIcon({ status }: { status: RowStatus }) {
       return (
         <span className={`${base} bg-state-warn/15 text-state-warn`}>!</span>
       );
+    case "skipped":
+      return <span className={`${base} border border-dashed border-line text-muted`}>–</span>;
     case "failed":
     case "interrupted":
       return <span className={`${base} bg-state-bad/15 text-state-bad`}>✕</span>;
@@ -72,23 +74,21 @@ export function StageList({
 }) {
   const rows = mergeStages(stages, order);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [lastStage, setLastStage] = useState<string | null>(null);
 
   // Auto-expand the running stage so logs are visible without a click.
-  useEffect(() => {
-    if (currentStage) {
-      setExpanded((prev) => {
-        if (prev.has(currentStage)) return prev;
-        const next = new Set(prev);
-        next.add(currentStage);
-        return next;
-      });
+  if (currentStage !== lastStage) {
+    setLastStage(currentStage);
+    if (currentStage && !expanded.has(currentStage)) {
+      setExpanded(new Set(expanded).add(currentStage));
     }
-  }, [currentStage]);
+  }
 
   const toggle = (name: string) =>
     setExpanded((prev) => {
       const next = new Set(prev);
-      next.has(name) ? next.delete(name) : next.add(name);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
       return next;
     });
 
@@ -108,7 +108,10 @@ export function StageList({
           : 0;
 
         return (
-          <div key={st.name} className={isCurrent ? "bg-brand-cyan/[0.04]" : ""}>
+          <div
+            key={st.name}
+            className={`${isCurrent ? "bg-accent/[0.04]" : ""} ${st.status === "skipped" ? "opacity-45" : ""}`}
+          >
             <button
               type="button"
               onClick={() => toggle(st.name)}
@@ -124,12 +127,15 @@ export function StageList({
                   {st.status === "degraded" && (
                     <span className="text-xs text-state-warn">degraded</span>
                   )}
+                  {st.status === "skipped" && (
+                    <span className="text-xs text-muted" title={st.message ?? undefined}>skipped</span>
+                  )}
                 </div>
                 {showProgress && (
                   <div className="mt-1.5 flex items-center gap-2">
                     <div className="h-1 w-32 overflow-hidden rounded-full bg-white/10">
                       <div
-                        className="h-full rounded-full bg-gradient-to-r from-brand-cyan to-brand-violet transition-all"
+                        className="h-full rounded-full bg-accent transition-[width] duration-300"
                         style={{ width: `${pct}%` }}
                       />
                     </div>
@@ -145,6 +151,11 @@ export function StageList({
                   title={`${st.tokens.toLocaleString("en-US")} tokens`}
                 >
                   {formatTokens(st.tokens)} tok
+                </span>
+              )}
+              {st.cost_usd != null && st.cost_usd > 0 && (
+                <span className="shrink-0 text-xs text-muted/70" title="Estimated AI spend for this stage">
+                  {formatUSD(st.cost_usd)}
                 </span>
               )}
               <span className="shrink-0 text-xs text-muted">
@@ -167,7 +178,7 @@ export function StageList({
                   animate={{ height: "auto", opacity: 1 }}
                   exit={{ height: 0, opacity: 0 }}
                   transition={{ duration: 0.2 }}
-                  className="overflow-hidden border-t border-line bg-base/40"
+                  className="overflow-hidden border-t border-line bg-midnight/40"
                 >
                   <LogStream lines={logs} />
                 </motion.div>
@@ -179,7 +190,7 @@ export function StageList({
 
       {/* Job-level logs (not tied to a stage), if any. */}
       {(logsByStage[JOB_LOG_KEY]?.length ?? 0) > 0 && (
-        <details className="bg-base/40">
+        <details className="bg-midnight/40">
           <summary className="cursor-pointer px-4 py-3 text-sm text-muted">
             Job-level logs
           </summary>

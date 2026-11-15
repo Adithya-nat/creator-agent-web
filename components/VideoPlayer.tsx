@@ -9,7 +9,7 @@ export const VideoPlayer = forwardRef<
   { src: string; poster?: string }
 >(function VideoPlayer({ src, poster }, ref) {
   return (
-    <div className="mx-auto aspect-[9/16] w-full max-w-[340px] overflow-hidden rounded-2xl border border-line bg-black shadow-glow-violet">
+    <div className="mx-auto aspect-[9/16] w-full max-w-[340px] overflow-hidden rounded-2xl border border-line bg-black shadow-lift">
       <video
         ref={ref}
         src={src}

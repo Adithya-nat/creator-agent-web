@@ -84,6 +84,7 @@ function phaseOf(st: StageRef, isCurrent: boolean): ScenePhase {
   switch (st.status) {
     case "succeeded":
     case "degraded":
+    case "skipped":
       return "done";
     case "failed":
     case "interrupted":

@@ -1,0 +1,10 @@
+{
+  "src": "/posters/atlas.webp",
+  "width": 2720,
+  "height": 2400,
+  "cols": 10,
+  "cellW": 256,
+  "cellH": 384,
+  "pad": 8,
+  "count": 60
+}

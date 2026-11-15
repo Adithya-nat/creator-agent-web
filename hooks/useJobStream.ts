@@ -47,9 +47,14 @@ const INITIAL: JobStream = {
  */
 export function useJobStream(jobId: string): JobStream {
   const [state, setState] = useState<JobStream>(INITIAL);
+  const [streamFor, setStreamFor] = useState(jobId);
+  if (streamFor !== jobId) {
+    // New job: reset during render instead of in the effect.
+    setStreamFor(jobId);
+    setState(INITIAL);
+  }
 
   useEffect(() => {
-    setState(INITIAL);
     let cancelled = false;
     let es: EventSource | null = null;
     let pollTimer: ReturnType<typeof setTimeout> | null = null;

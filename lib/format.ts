@@ -48,3 +48,10 @@ export function formatTokens(n: number | null | undefined): string {
   if (n >= 10_000) return `${(n / 1_000).toFixed(0)}K`;
   return n.toLocaleString("en-US");
 }
+
+/** "$4.82" (cents shown under $100), "$0.004" for tiny per-call amounts. */
+export function formatUSD(n: number | null | undefined): string {
+  const v = n ?? 0;
+  if (v > 0 && v < 0.01) return `$${v.toFixed(3)}`;
+  return v >= 100 ? `$${Math.round(v)}` : `$${v.toFixed(2)}`;
+}

@@ -26,7 +26,9 @@ export function Turnstile({
   const ref = useRef<HTMLDivElement>(null);
   const widgetId = useRef<string | null>(null);
   const cb = useRef(onToken);
-  cb.current = onToken;
+  useEffect(() => {
+    cb.current = onToken;
+  });
 
   useEffect(() => {
     if (!siteKey) {

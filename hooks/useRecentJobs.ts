@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 
 export interface RecentJob {
   id: string;
@@ -10,7 +10,7 @@ export interface RecentJob {
 
 const KEY = "storyboard.recentJobs";
 const MAX = 12;
-const TTL_MS = 60 * 60 * 1000; // mirror the backend's 1-hour retention
+const TTL_MS = 24 * 60 * 60 * 1000; // mirror the backend's 24-hour retention (JOB_TTL_SECONDS)
 
 function read(): RecentJob[] {
   if (typeof window === "undefined") return [];
@@ -33,34 +33,51 @@ function write(list: RecentJob[]) {
   }
 }
 
+// localStorage-backed store; listeners re-read on writes from this tab or others.
+const listeners = new Set<() => void>();
+let cache: { raw: string | null; jobs: RecentJob[] } = { raw: null, jobs: [] };
+const EMPTY: RecentJob[] = [];
+
+function snapshot(): RecentJob[] {
+  let raw: string | null = null;
+  try {
+    raw = window.localStorage.getItem(KEY);
+  } catch {
+    return EMPTY;
+  }
+  if (raw !== cache.raw) cache = { raw, jobs: read() };
+  return cache.jobs;
+}
+
+function subscribe(onChange: () => void) {
+  listeners.add(onChange);
+  window.addEventListener("storage", onChange);
+  return () => {
+    listeners.delete(onChange);
+    window.removeEventListener("storage", onChange);
+  };
+}
+
+function update(fn: (prev: RecentJob[]) => RecentJob[]) {
+  write(fn(read()));
+  listeners.forEach((l) => l());
+}
+
 /**
  * Client-side "recent jobs" (no login = no server identity). Prunes entries
- * older than the backend's 1-hour TTL so we never link to an expired job.
+ * older than the backend's 24-hour TTL so we never link to an expired job.
  */
 export function useRecentJobs() {
-  const [jobs, setJobs] = useState<RecentJob[]>([]);
-
-  useEffect(() => {
-    setJobs(read());
-  }, []);
+  const jobs = useSyncExternalStore(subscribe, snapshot, () => EMPTY);
 
   const add = useCallback((id: string, prompt: string) => {
-    setJobs((prev) => {
-      const next = [
-        { id, prompt, createdAt: Date.now() },
-        ...prev.filter((j) => j.id !== id),
-      ].slice(0, MAX);
-      write(next);
-      return next;
-    });
+    update((prev) =>
+      [{ id, prompt, createdAt: Date.now() }, ...prev.filter((j) => j.id !== id)].slice(0, MAX),
+    );
   }, []);
 
   const remove = useCallback((id: string) => {
-    setJobs((prev) => {
-      const next = prev.filter((j) => j.id !== id);
-      write(next);
-      return next;
-    });
+    update((prev) => prev.filter((j) => j.id !== id));
   }, []);
 
   return { jobs, add, remove };

@@ -1,0 +1,8 @@
+# TMDB ids hand-excluded after contact-sheet review (off-brand for a creative tool).
+660982 # American Pie Presents: Girls' Rules
+2105 # American Pie
+10358 # Zack and Miri Make a Porno
+337167 # Fifty Shades Freed
+401981 # Red Sparrow
+817 # Austin Powers: The Spy Who Shagged Me
+43347 # Love & Other Drugs

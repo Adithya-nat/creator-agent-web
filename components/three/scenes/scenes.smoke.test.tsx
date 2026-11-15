@@ -7,7 +7,9 @@ import ReactThreeTestRenderer from "@react-three/test-renderer";
 import { describe, expect, it } from "vitest";
 import type { ReactElement } from "react";
 import type { StageSignal } from "@/lib/stageSignals";
+import { PosterDrift } from "../HeroBackdrop";
 import { AssembleScene } from "./AssembleScene";
+import { AudioScene } from "./AudioScene";
 import { CompletionScene } from "./CompletionScene";
 import { DesignScene } from "./DesignScene";
 import { FramesScene } from "./FramesScene";
@@ -61,6 +63,11 @@ describe("stage scenes render + animate without throwing", () => {
     ).toBeGreaterThan(0);
   });
 
+  it("AudioScene (animated + reduced)", async () => {
+    expect(await mountTickUnmount(<AudioScene signal={sig("music")} reduced={false} />)).toBeGreaterThan(0);
+    expect(await mountTickUnmount(<AudioScene signal={sig("narration")} reduced />)).toBeGreaterThan(0);
+  });
+
   it("CompletionScene (burst mutates its buffer without throwing)", async () => {
     expect(await mountTickUnmount(<CompletionScene />)).toBeGreaterThan(0);
   });
@@ -77,5 +84,10 @@ describe("stage scenes render + animate without throwing", () => {
     expect(
       await mountTickUnmount(<ScriptScene signal={sig("script_writer")} reduced count={9} />),
     ).toBeGreaterThan(0);
+  });
+
+  it("Hero PosterDrift (animated + reduced)", async () => {
+    expect(await mountTickUnmount(<PosterDrift reduced={false} />)).toBeGreaterThan(0);
+    expect(await mountTickUnmount(<PosterDrift reduced />)).toBeGreaterThan(0);
   });
 });

@@ -1,7 +1,14 @@
 // Typed client over the storyboard_agent FastAPI backend.
 
 import type {
+  BudgetStatus,
   JobCreatedResponse,
+  Language,
+  PublishKit,
+  RunRow,
+  StoryStyle,
+  UsageRange,
+  UsageSummary,
   JobStatusResponse,
   LogsResponse,
   StoryboardContent,
@@ -46,6 +53,8 @@ export const api = {
     prompt: string,
     duration: 30 | 60,
     turnstileToken?: string | null,
+    style?: StoryStyle,
+    language?: Language,
   ) =>
     req<JobCreatedResponse>("/storyboard", {
       method: "POST",
@@ -53,9 +62,16 @@ export const api = {
       body: JSON.stringify({
         prompt,
         duration,
+        style,
+        language,
         turnstile_token: turnstileToken ?? null,
       }),
     }),
+
+  getPublishKit: (id: string) => req<PublishKit>(`/storyboard/${id}/publish`),
+  getBudget: () => req<BudgetStatus>("/budget"),
+  getUsageSummary: (range: UsageRange) => req<UsageSummary>(`/usage/summary?range=${range}`),
+  getUsageRuns: (limit = 50) => req<RunRow[]>(`/usage/runs?limit=${limit}`),
 
   getJob: (id: string) => req<JobStatusResponse>(`/storyboard/${id}`),
 
@@ -75,8 +91,13 @@ export const api = {
     req<StoryboardContent>(`/storyboard/${id}/storyboard`),
 
   // Returns the raw Response so callers can branch on 202 / 409 / 404 / 410.
-  resumeJob: (id: string) =>
-    fetch(`${API_BASE}/storyboard/${id}/resume`, { method: "POST" }),
+  resumeJob: (id: string, opts?: { allowStills?: boolean }) =>
+    fetch(`${API_BASE}/storyboard/${id}/resume`, {
+      method: "POST",
+      ...(opts?.allowStills
+        ? { headers: { "content-type": "application/json" }, body: JSON.stringify({ allow_stills: true }) }
+        : {}),
+    }),
 
   videoUrl: (id: string) => `${API_BASE}/storyboard/${id}/video`,
   eventsUrl: (id: string) => `${API_BASE}/storyboard/${id}/events`,

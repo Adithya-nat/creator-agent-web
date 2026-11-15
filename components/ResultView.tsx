@@ -1,13 +1,18 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { CastStrip } from "@/components/CastStrip";
 import { Filmstrip } from "@/components/Filmstrip";
+import { PublishPanel } from "@/components/PublishPanel";
+import { ScriptPanel } from "@/components/ScriptPanel";
 import { Spinner } from "@/components/Spinner";
 import { VideoPlayer } from "@/components/VideoPlayer";
 import { api, ApiError } from "@/lib/api";
-import { formatTokens } from "@/lib/format";
+import { formatTokens, formatUSD } from "@/lib/format";
 import { formatMotionCoverage } from "@/lib/motionCoverage";
 import type { StoryboardContent } from "@/lib/types";
+
+const STYLE_LABEL: Record<string, string> = { dialogue: "Dialogue", mixed: "Mixed", narrated: "Narrated" };
 
 function WarningsBanner({ warnings }: { warnings: string[] }) {
   const [open, setOpen] = useState(false);
@@ -16,7 +21,7 @@ function WarningsBanner({ warnings }: { warnings: string[] }) {
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 text-sm text-state-warn">
           <span aria-hidden="true">!</span>
-          <span>Some frames used a fallback, but your film is complete.</span>
+          <span>A few scenes used a fallback, but your film is complete.</span>
         </div>
         <button
           type="button"
@@ -76,6 +81,7 @@ export function ResultView({
   }
 
   const total = content.scenes.length || 1;
+  const tamil = content.language === "ta";
   const motionSummary = formatMotionCoverage(content.motion_coverage);
   const poster = content.scenes[0]?.frame_url
     ? api.asset(content.scenes[0].frame_url)
@@ -102,13 +108,7 @@ export function ResultView({
                 src={api.asset(content.video_url)}
                 poster={poster}
               />
-              <a
-                href={api.asset(content.video_url)}
-                download={`${content.title || "storyboard"}.mp4`}
-                className="flex items-center justify-center gap-2 rounded-full border border-line bg-surface/60 px-4 py-2 text-sm text-ink transition-colors hover:border-brand-cyan/40"
-              >
-                ↓ Download mp4
-              </a>
+
             </>
           ) : (
             <div className="glass p-6 text-sm text-muted">
@@ -127,45 +127,51 @@ export function ResultView({
             <p className="text-muted">{content.logline}</p>
           )}
           {content.style && (
-            <p className="text-xs uppercase tracking-wider text-muted/70">
+            <p className="text-sm text-muted">
               {content.style}
             </p>
           )}
-          <p className="pt-2 text-sm text-muted">
-            {content.scenes.length} frames · {content.duration}s
-            {content.total_tokens > 0 && (
-              <>
-                {" · "}
-                <span title="Total tokens consumed generating this storyboard">
-                  {formatTokens(content.total_tokens)} tokens
+          <div className="flex flex-wrap gap-2 pt-2 text-xs">
+            {[
+              content.story_style && `${STYLE_LABEL[content.story_style] ?? content.story_style}`,
+              content.language === "ta" ? "தமிழ்" : "English",
+              `${content.scenes.length} scenes · ${content.duration}s`,
+              content.cost_usd ? `${formatUSD(content.cost_usd)} AI cost` : null,
+              content.total_tokens > 0 ? `${formatTokens(content.total_tokens)} tokens` : null,
+            ]
+              .filter(Boolean)
+              .map((chip) => (
+                <span key={String(chip)} className="rounded-full border border-line bg-surface/50 px-2.5 py-1 text-muted">
+                  {chip}
                 </span>
-              </>
-            )}
-            {content.narrated && (
-              <>
-                {" · "}
-                <span title="This film has a narrator reading each caption, synced to the images">
-                  🔊 narrated
-                </span>
-              </>
-            )}
-          </p>
+              ))}
+          </div>
           {motionSummary && (
-            <p className="text-sm text-brand-cyan" title="Motion renderer coverage">
+            <p className="text-sm text-accent" title="Motion renderer coverage">
               {motionSummary}
             </p>
           )}
         </div>
       </div>
 
+      <PublishPanel
+        jobId={jobId}
+        videoUrl={content.video_url}
+        coverUrl={content.cover_url}
+        title={content.title}
+        tamil={tamil}
+      />
+
+      <CastStrip cast={content.cast ?? []} />
+
       {content.scenes.length > 0 && (
         <div>
-          <h3 className="mb-3 text-sm uppercase tracking-wider text-muted">
-            Storyboard
-          </h3>
-          <Filmstrip scenes={content.scenes} onSeek={onSeek} />
+          <h3 className="mb-3 font-display text-xl font-semibold text-ink">Scenes</h3>
+          <Filmstrip scenes={content.scenes} onSeek={onSeek} tamil={tamil} />
         </div>
       )}
+
+      <ScriptPanel scenes={content.scenes} tamil={tamil} />
     </div>
   );
 }
