@@ -118,6 +118,12 @@ describe("stations", () => {
     }
   });
 
+  it("gives each paper station its own scene", () => {
+    expect(STATIONS.script_writer.view).toBe("writers");
+    expect(STATIONS.dialogue_pass.view).toBe("tableread");
+    expect(STATIONS.reflection.view).toBe("notes");
+  });
+
   it("falls back to a generic station for stages this build doesn't know", () => {
     const st = stationFor("color_grade");
     expect(st.view).toBe("generic");

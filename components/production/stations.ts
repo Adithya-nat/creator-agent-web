@@ -22,6 +22,7 @@ import { STAGE_LABELS, type StageRef } from "@/lib/types";
 export type StationView =
   | "development"
   | "writers"
+  | "tableread"
   | "notes"
   | "art"
   | "camera"
@@ -79,7 +80,7 @@ export const STATIONS: Record<string, StationDef> = {
         : "Breaking the story into beats",
   },
   dialogue_pass: {
-    view: "notes",
+    view: "tableread",
     dept: "Table Read",
     short: "Dialogue",
     icon: MessagesSquare,
