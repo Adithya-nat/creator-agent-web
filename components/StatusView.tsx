@@ -5,20 +5,17 @@ import { useEffect, useState } from "react";
 import { FailurePanel } from "@/components/FailurePanel";
 import { JobErrorPanel } from "@/components/JobErrorPanel";
 import { JobIdChip } from "@/components/JobIdChip";
+import { ProductionLine } from "@/components/production/ProductionLine";
 import { PromptSummary } from "@/components/PromptSummary";
 import { ResultView } from "@/components/ResultView";
 import { StageList } from "@/components/StageList";
 import { StatusBadge } from "@/components/StatusBadge";
 import { TopBar } from "@/components/TopBar";
 import { type ConnState, useJobStream } from "@/hooks/useJobStream";
+import { liveSignal, useLiveAssets } from "@/hooks/useLiveAssets";
 import { formatTokens } from "@/lib/format";
 import { stageOrderOf } from "@/lib/stageSignals";
 import { isTerminal } from "@/lib/types";
-
-const StageScene = dynamic(
-  () => import("@/components/three/StageScene").then((m) => m.StageScene),
-  { ssr: false, loading: () => <div className="h-full w-full" /> },
-);
 
 const CompletionFlourish = dynamic(
   () =>
@@ -56,6 +53,7 @@ export function StatusView({ jobId }: { jobId: string }) {
   const success =
     status === "completed" || status === "completed_with_warnings";
   const failed = status === "failed" || status === "interrupted";
+  const live = useLiveAssets(jobId, liveSignal(s.assetsVersion, s.job, s.stages), !s.error && !terminal);
 
   // Celebratory burst on completion: fires once when the job reaches success
   // (also when re-opening an already-finished job), then self-clears. Rendered
@@ -129,25 +127,18 @@ export function StatusView({ jobId }: { jobId: string }) {
 
             {!terminal && (
               <section className="mb-10">
-                <div className="h-72 w-full sm:h-96">
-                  <StageScene
-                    stages={s.stages}
-                    currentStage={s.currentStage}
-                    status={s.status}
-                    job={s.job}
-                    logsByStage={s.logsByStage}
-                  />
-                </div>
-                <div className="mt-4 space-y-2 text-center">
-                  <h2 className="font-display text-xl font-semibold">
-                    Your film is being generated
-                  </h2>
-                  <p className="mx-auto max-w-xl text-sm text-muted">
-                    This takes a minute or two. Each stage below animates as it
-                    runs — click any stage to expand its live logs. You can safely
-                    leave and come back with your job ID within the hour.
-                  </p>
-                </div>
+                <ProductionLine
+                  jobId={jobId}
+                  stages={s.stages}
+                  currentStage={s.currentStage}
+                  status={s.status}
+                  job={s.job}
+                  live={live}
+                />
+                <p className="mx-auto mt-3 max-w-xl text-center text-xs text-muted">
+                  Takes a few minutes. You can leave and come back with your job ID
+                  within the hour.
+                </p>
               </section>
             )}
 

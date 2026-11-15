@@ -21,6 +21,9 @@ export interface JobStream {
   done: boolean;
   connection: ConnState;
   error: { status: number; message: string } | null; // 404 not found / 410 expired
+  /** Fingerprint of the job's published artifacts, from the SSE `assets` event
+   *  (null on servers without live assets, or while polling). */
+  assetsVersion: string | null;
 }
 
 export const JOB_LOG_KEY = "__job__"; // bucket for stage === null (job-level logs)
@@ -34,6 +37,7 @@ const INITIAL: JobStream = {
   done: false,
   connection: "connecting",
   error: null,
+  assetsVersion: null,
 };
 
 /**
@@ -150,6 +154,14 @@ export function useJobStream(jobId: string): JobStream {
       es.addEventListener("stage", (e) => {
         try {
           patch({ stages: JSON.parse((e as MessageEvent).data) as StageRef[] });
+        } catch {
+          /* ignore */
+        }
+      });
+      es.addEventListener("assets", (e) => {
+        try {
+          const d = JSON.parse((e as MessageEvent).data);
+          if (typeof d.version === "string") patch({ assetsVersion: d.version });
         } catch {
           /* ignore */
         }
