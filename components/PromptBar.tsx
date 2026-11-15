@@ -23,8 +23,7 @@ export function PromptBar({
   const tooShort = value.trim().length > 0 && value.trim().length < MIN;
   return (
     <div className="w-full">
-      <div className="group relative rounded-2xl border border-line bg-surface/70 shadow-glow-violet backdrop-blur-xl transition focus-within:border-brand-cyan/50">
-        <div className="pointer-events-none absolute -inset-px rounded-2xl bg-gradient-to-r from-brand-cyan/0 via-brand-violet/10 to-brand-pink/0 opacity-0 transition-opacity group-focus-within:opacity-100" />
+      <div className="group relative rounded-2xl border border-line bg-surface/70 shadow-lift backdrop-blur-xl transition focus-within:border-accent/50">
         <textarea
           value={value}
           onChange={(e) => onChange(e.target.value.slice(0, MAX))}
@@ -62,7 +61,7 @@ export function PromptBar({
             type="button"
             disabled={disabled}
             onClick={() => onChange(ex)}
-            className="rounded-full border border-line bg-surface/40 px-3 py-1 text-xs text-muted transition-colors hover:border-brand-cyan/40 hover:text-ink disabled:opacity-50"
+            className="rounded-full border border-line bg-surface/40 px-3 py-1 text-xs text-muted transition-colors hover:border-accent/40 hover:text-ink disabled:opacity-50"
           >
             {ex}
           </button>

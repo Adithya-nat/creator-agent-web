@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { deriveStageSignals, stageOrderOf } from "@/lib/stageSignals";
 import {
   STAGE_ORDER,
-  type JobStatus,
   type JobStatusResponse,
   type LogLine,
   type StageRef,
@@ -93,8 +92,19 @@ describe("deriveStageSignals", () => {
     expect(s.stages.designer.phase).toBe("active");
     expect(s.stages.image_gen.phase).toBe("pending");
     expect(s.overall).toBe("running");
-    // 2 of 5 done + a half-weighted active stage => (2 + 0.5)/5 = 0.5
-    expect(s.progress01).toBeCloseTo(0.5, 5);
+    // 2 of 10 fallback stages done + a half-weighted active stage => (2 + 0.5)/10
+    expect(s.progress01).toBeCloseTo(0.25, 5);
+  });
+
+  it("skipped stages count as done (e.g. narration in a dialogue film)", () => {
+    const s = deriveStageSignals({
+      stages: [stage("narration", "skipped"), stage("motion", "running")],
+      currentStage: "motion",
+      status: "running",
+      job: job(),
+    });
+    expect(s.stages.narration.phase).toBe("done");
+    expect(s.stages.motion.phase).toBe("active");
   });
 
   it("image_gen exposes REAL frame progress (structural, not a guess)", () => {

@@ -1,5 +1,6 @@
 "use client";
 
+import { mulberry32 } from "@/lib/rand";
 import { useFrame } from "@react-three/fiber";
 import { useMemo, useRef } from "react";
 import * as THREE from "three";
@@ -19,14 +20,15 @@ export function CompletionScene() {
     const positions = new Float32Array(N * 3); // start at the origin (0,0,0)
     const dirs = new Float32Array(N * 3);
     const colors = new Float32Array(N * 3);
+    const rnd = mulberry32(42);
     for (let i = 0; i < N; i++) {
-      const theta = Math.random() * Math.PI * 2;
-      const phi = Math.acos(2 * Math.random() - 1);
-      const speed = 0.6 + Math.random() * 0.85;
+      const theta = rnd() * Math.PI * 2;
+      const phi = Math.acos(2 * rnd() - 1);
+      const speed = 0.6 + rnd() * 0.85;
       dirs[i * 3] = Math.sin(phi) * Math.cos(theta) * speed;
       dirs[i * 3 + 1] = Math.cos(phi) * speed * 0.85;
       dirs[i * 3 + 2] = Math.sin(phi) * Math.sin(theta) * speed;
-      const c = ramp(Math.random());
+      const c = ramp(rnd());
       colors[i * 3] = c.r;
       colors[i * 3 + 1] = c.g;
       colors[i * 3 + 2] = c.b;

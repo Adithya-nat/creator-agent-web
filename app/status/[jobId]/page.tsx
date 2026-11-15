@@ -1,9 +1,10 @@
 import { StatusView } from "@/components/StatusView";
 
-export default function StatusPage({
+export default async function StatusPage({
   params,
 }: {
-  params: { jobId: string };
+  params: Promise<{ jobId: string }>;
 }) {
-  return <StatusView jobId={params.jobId} />;
+  const { jobId } = await params;
+  return <StatusView jobId={jobId} />;
 }

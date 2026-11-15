@@ -30,11 +30,11 @@ export function JobIdChip({
         type="button"
         onClick={copy}
         title="Copy job ID"
-        className="group inline-flex items-center gap-2 rounded-full border border-line bg-surface/60 px-3 py-1.5 font-mono text-xs text-ink/90 backdrop-blur-md transition-colors hover:border-brand-cyan/40"
+        className="group inline-flex items-center gap-2 rounded-full border border-line bg-surface/60 px-3 py-1.5 font-mono text-xs text-ink/90 backdrop-blur-md transition-colors hover:border-accent/40"
       >
         <span className="text-muted">job</span>
         <span className="max-w-[42vw] truncate sm:max-w-none">{jobId}</span>
-        <span className="text-muted transition-colors group-hover:text-brand-cyan">
+        <span className="text-muted transition-colors group-hover:text-accent">
           {copied ? "✓ copied" : "copy"}
         </span>
       </button>
@@ -47,7 +47,7 @@ export function JobIdChip({
                 ? "text-state-warn"
                 : "text-muted"
           }`}
-          title="Jobs are kept for 1 hour after creation"
+          title="Films are kept for 24 hours after they start"
         >
           {expired ? "expired" : `expires in ${label}`}
         </span>

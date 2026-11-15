@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { FailurePanel } from "@/components/FailurePanel";
 import { JobErrorPanel } from "@/components/JobErrorPanel";
 import { JobIdChip } from "@/components/JobIdChip";
+import { PromptSummary } from "@/components/PromptSummary";
 import { ResultView } from "@/components/ResultView";
 import { StageList } from "@/components/StageList";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -30,8 +31,8 @@ const CompletionFlourish = dynamic(
 function ConnDot({ connection }: { connection: ConnState }) {
   if (connection === "live")
     return (
-      <span className="inline-flex items-center gap-1.5 text-xs text-brand-cyan">
-        <span className="h-1.5 w-1.5 rounded-full bg-brand-cyan animate-pulseGlow" />
+      <span className="inline-flex items-center gap-1.5 text-xs text-accent">
+        <span className="h-1.5 w-1.5 rounded-full bg-accent animate-pulseGlow" />
         live
       </span>
     );
@@ -60,12 +61,16 @@ export function StatusView({ jobId }: { jobId: string }) {
   // (also when re-opening an already-finished job), then self-clears. Rendered
   // as a pointer-events-none overlay so it never blocks the finished video.
   const [showFlourish, setShowFlourish] = useState(false);
+  const [wasSuccess, setWasSuccess] = useState(false);
+  if (success !== wasSuccess) {
+    setWasSuccess(success);
+    if (success) setShowFlourish(true);
+  }
   useEffect(() => {
-    if (!success) return;
-    setShowFlourish(true);
+    if (!showFlourish) return;
     const id = setTimeout(() => setShowFlourish(false), 3200);
     return () => clearTimeout(id);
-  }, [success]);
+  }, [showFlourish]);
 
   // Running token total: the persisted job total once terminal, else the live sum of
   // per-stage tokens (each stage writes its count as it finishes).
@@ -101,11 +106,7 @@ export function StatusView({ jobId }: { jobId: string }) {
                   <ConnDot connection={s.connection} />
                 </div>
               </div>
-              {s.job?.prompt && (
-                <h1 className="font-display text-2xl font-semibold tracking-tight">
-                  &ldquo;{s.job.prompt}&rdquo;
-                </h1>
-              )}
+              {s.job?.prompt && <PromptSummary prompt={s.job.prompt} />}
               <JobIdChip jobId={jobId} expiresAt={s.job?.expires_at} />
             </header>
 
@@ -121,6 +122,7 @@ export function StatusView({ jobId }: { jobId: string }) {
                   jobId={jobId}
                   status={status as "failed" | "interrupted"}
                   error={s.job?.error ?? null}
+                  gap={s.job?.video_gap ?? null}
                 />
               </section>
             )}
@@ -149,7 +151,7 @@ export function StatusView({ jobId }: { jobId: string }) {
               </section>
             )}
 
-            <h2 className="mb-3 text-sm uppercase tracking-wider text-muted">
+            <h2 className="mb-3 font-display text-xl font-semibold text-ink">
               Pipeline &amp; logs
             </h2>
             <StageList

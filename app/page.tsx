@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
-import { DurationToggle } from "@/components/DurationToggle";
+import { CreateOptions } from "@/components/CreateOptions";
 import { PromptBar } from "@/components/PromptBar";
 import { RecentJobs } from "@/components/RecentJobs";
 import { Spinner } from "@/components/Spinner";
@@ -12,7 +12,7 @@ import { TopBar } from "@/components/TopBar";
 import { Turnstile } from "@/components/Turnstile";
 import { useRecentJobs } from "@/hooks/useRecentJobs";
 import { api, ApiError } from "@/lib/api";
-import type { Duration } from "@/lib/types";
+import type { Duration, Language, StoryStyle } from "@/lib/types";
 
 const HeroBackdrop = dynamic(
   () => import("@/components/three/HeroBackdrop").then((m) => m.HeroBackdrop),
@@ -24,6 +24,8 @@ export default function CreatePage() {
   const { add } = useRecentJobs();
   const [prompt, setPrompt] = useState("");
   const [duration, setDuration] = useState<Duration>(30);
+  const [style, setStyle] = useState<StoryStyle>("dialogue");
+  const [language, setLanguage] = useState<Language>("en");
   const [token, setToken] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,7 +47,7 @@ export default function CreatePage() {
     setSubmitting(true);
     setError(null);
     try {
-      const { job_id } = await api.createStoryboard(p, duration, token);
+      const { job_id } = await api.createStoryboard(p, duration, token, style, language);
       add(job_id, p);
       router.push(`/status/${job_id}`);
     } catch (e) {
@@ -55,104 +57,88 @@ export default function CreatePage() {
             ? "You're generating a lot right now — give it a minute and try again."
             : e.status === 403
               ? "Verification failed. Complete the check and try again."
-              : e.message
+              : e.status === 402
+                ? `Monthly AI budget reached. ${e.message}`
+                : e.message
           : "Something went wrong. Please try again.";
       setError(msg);
       setSubmitting(false);
     }
-  }, [prompt, duration, token, add, router]);
+  }, [prompt, duration, token, style, language, add, router]);
 
   return (
     <main className="relative min-h-screen overflow-hidden">
       <HeroBackdrop />
       <TopBar active="create" />
 
-      <section className="relative z-10 mx-auto flex min-h-screen max-w-3xl flex-col items-center justify-center px-5 py-28 text-center">
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="mb-5 inline-flex items-center gap-2 rounded-full border border-line bg-surface/40 px-3 py-1 text-xs text-muted backdrop-blur-md"
-        >
-          <span className="h-1.5 w-1.5 rounded-full bg-brand-cyan shadow-glow" />
-          No login. Just describe and generate.
-        </motion.div>
+      <section className="relative z-10 mx-auto max-w-4xl px-5 pb-20 pt-28 sm:pt-36">
+        <Marquee />
+        <h1 className="mt-6 font-display text-[clamp(3.25rem,9vw,7rem)] font-extrabold uppercase leading-[0.86] tracking-[-0.01em] text-ink">
+          Write one line.
+          <br />
+          Get a short film.
+        </h1>
+        <p className="mt-6 max-w-[58ch] text-lg leading-relaxed text-muted">
+          An original cast, scenes filmed by AI with characters speaking their lines,
+          a score, captions and ready-to-post copy. In English or Tamil.
+        </p>
 
-        <motion.h1
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, ease: "easeOut" }}
-          className="font-display text-4xl font-semibold leading-[1.05] tracking-tight sm:text-6xl"
-        >
-          Describe it.{" "}
-          <span className="text-gradient">Watch it become a film.</span>
-        </motion.h1>
-
-        <motion.p
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.1, ease: "easeOut" }}
-          className="mt-5 max-w-xl text-balance text-base text-muted sm:text-lg"
-        >
-          One prompt becomes a cinematic vertical short: consistent AI-generated
-          frames, captions, Ken Burns motion, and an optional voiceover.
-        </motion.p>
-
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.2, ease: "easeOut" }}
-          className="mt-10 w-full"
-        >
-          <PromptBar
-            value={prompt}
-            onChange={setPrompt}
-            onSubmit={handleGenerate}
+        <div className="mt-10 space-y-6">
+          <PromptBar value={prompt} onChange={setPrompt} onSubmit={handleGenerate} disabled={submitting} />
+          <CreateOptions
+            style={style}
+            language={language}
+            duration={duration}
+            onStyle={setStyle}
+            onLanguage={setLanguage}
+            onDuration={setDuration}
             disabled={submitting}
           />
 
-          <div className="mt-6 flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
-            <DurationToggle
-              value={duration}
-              onChange={setDuration}
-              disabled={submitting}
-            />
+          {turnstileEnabled && <Turnstile onToken={onToken} />}
+
+          <div className="flex flex-wrap items-center gap-4">
             <button
               type="button"
               onClick={handleGenerate}
               disabled={!canSubmit}
-              className="group relative inline-flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-brand-cyan to-brand-violet px-7 py-3 text-base font-medium text-white shadow-glow transition-all hover:shadow-glow-violet disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto"
+              className="press inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-accent px-8 text-base font-semibold text-midnight hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
             >
               {submitting ? (
                 <>
-                  <Spinner /> Generating…
+                  <Spinner /> Starting your film
                 </>
               ) : (
-                <>
-                  Generate
-                  <span className="transition-transform group-hover:translate-x-0.5">
-                    →
-                  </span>
-                </>
+                "Make the film"
               )}
             </button>
+            {error && (
+              <p role="alert" className="text-sm text-state-bad">
+                {error}
+              </p>
+            )}
           </div>
-
-          {turnstileEnabled && (
-            <div className="mt-4 flex justify-center">
-              <Turnstile onToken={onToken} />
-            </div>
-          )}
-
-          {error && (
-            <p role="alert" className="mt-4 text-sm text-state-bad">
-              {error}
-            </p>
-          )}
-        </motion.div>
+        </div>
 
         <RecentJobs />
       </section>
     </main>
+  );
+}
+
+/** A row of marquee bulbs that light up once on load (static under reduced motion). */
+function Marquee() {
+  return (
+    <div aria-hidden="true" className="flex gap-[10px]">
+      {Array.from({ length: 18 }, (_, i) => (
+        <motion.span
+          key={i}
+          className="h-2 w-2 rounded-full bg-accent shadow-[0_0_10px_rgba(242,181,68,0.6)]"
+          initial={{ opacity: 0.15 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.15 + i * 0.035, duration: 0.25 }}
+        />
+      ))}
+    </div>
   );
 }

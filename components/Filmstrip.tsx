@@ -1,7 +1,8 @@
 "use client";
 
 import { api } from "@/lib/api";
-import { motionBadge } from "@/lib/motionCoverage";
+import { VoiceIcon } from "@/components/VoiceIcon";
+import { motionBadge, voiceBadge } from "@/lib/motionCoverage";
 import type { StoryboardScene } from "@/lib/types";
 
 /** Horizontal strip of generated frames with their captions, with a subtle CSS-3D
@@ -9,9 +10,11 @@ import type { StoryboardScene } from "@/lib/types";
 export function Filmstrip({
   scenes,
   onSeek,
+  tamil,
 }: {
   scenes: StoryboardScene[];
   onSeek?: (index: number) => void;
+  tamil?: boolean;
 }) {
   if (scenes.length === 0) return null;
   return (
@@ -19,6 +22,7 @@ export function Filmstrip({
       <div className="scroll-thin flex gap-4 overflow-x-auto pb-4">
         {scenes.map((s, i) => {
           const badge = motionBadge(s);
+          const voice = voiceBadge(s);
           const degraded =
             s.status === "degraded" ||
             s.motion_kind === "composited" ||
@@ -28,7 +32,7 @@ export function Filmstrip({
               key={s.order}
               type="button"
               onClick={() => onSeek?.(i)}
-              className="group w-[150px] shrink-0 text-left transition-transform duration-300 hover:[transform:rotateY(-6deg)_translateZ(20px)]"
+              className="group w-[160px] shrink-0 text-left transition-transform duration-300 hover:[transform:rotateY(-6deg)_translateZ(20px)]"
               title={`Frame ${s.order}${onSeek ? " — click to seek" : ""}`}
             >
               <div
@@ -76,7 +80,7 @@ export function Filmstrip({
                     className={`absolute right-1.5 top-1.5 rounded-full px-2 py-0.5 text-[10px] font-medium ${
                       degraded
                         ? "bg-state-warn/80 text-black"
-                        : "bg-brand-cyan/80 text-black"
+                        : "bg-accent/80 text-black"
                     }`}
                     title={s.motion_reason ?? undefined}
                   >
@@ -84,8 +88,13 @@ export function Filmstrip({
                   </span>
                 )}
               </div>
+              {voice && (
+                <p className="mt-2 flex items-center gap-1.5 text-xs text-accent">
+                  <VoiceIcon kind={voice.kind} /> {voice.label}
+                </p>
+              )}
               {s.narration && (
-                <p className="mt-2 line-clamp-3 text-xs leading-snug text-muted">
+                <p className={`mt-1 line-clamp-3 whitespace-pre-line text-xs leading-snug text-muted ${tamil ? "font-tamil" : ""}`}>
                   {s.narration}
                 </p>
               )}

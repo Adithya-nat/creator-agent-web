@@ -3,73 +3,106 @@
 import { useState } from "react";
 import { Spinner } from "@/components/Spinner";
 import { api } from "@/lib/api";
+import type { VideoGap } from "@/lib/types";
+import { gapCopy } from "@/lib/videoGap";
+
+type Action = "resume" | "finish";
 
 export function FailurePanel({
   jobId,
   status,
   error,
+  gap,
 }: {
   jobId: string;
   status: "failed" | "interrupted";
   error: string | null;
+  gap?: VideoGap | null;
 }) {
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<Action | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
 
-  const resume = async () => {
-    setBusy(true);
+  const run = async (action: Action) => {
+    setBusy(action);
     setMsg(null);
     try {
-      const res = await api.resumeJob(jobId);
+      const res = await api.resumeJob(jobId, { allowStills: action === "finish" });
       if (res.status === 202) {
         // Re-subscribe as a running job (reload re-runs useJobStream from scratch).
         window.location.reload();
         return;
       }
       if (res.status === 409) {
-        setMsg("This job is already running or already finished.");
+        setMsg("This film is already running or already finished.");
       } else if (res.status === 404 || res.status === 410) {
-        setMsg("This job has expired and can no longer be resumed.");
+        setMsg("This film has expired and can no longer be resumed.");
       } else {
-        setMsg("Couldn't resume the job. Please try again.");
+        setMsg("Couldn't resume the film. Try again.");
       }
     } catch {
-      setMsg("Can't reach the server. Is the backend running?");
+      setMsg("Can't reach the server. Is the API running?");
     }
-    setBusy(false);
+    setBusy(null);
   };
 
+  const copy = gap ? gapCopy(gap) : null;
+  const secondary =
+    "inline-flex items-center gap-2 rounded-full border border-white/15 px-5 py-2 text-sm font-medium text-ink press hover:bg-white/5 disabled:opacity-50";
+  const primary =
+    "inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2 text-sm font-medium text-midnight press hover:bg-accent-hover disabled:opacity-50";
+
   return (
-    <div className="glass border-state-bad/30 p-6">
-      <div className="flex items-center gap-2 text-state-bad">
-        <span aria-hidden="true">✕</span>
+    <div className={`glass p-6 ${copy ? "border-state-warn/30" : "border-state-bad/30"}`}>
+      <div className={`flex items-center gap-2 ${copy ? "text-state-warn" : "text-state-bad"}`}>
+        <span aria-hidden="true">{copy ? "◐" : "✕"}</span>
         <h2 className="font-display text-lg font-semibold">
-          {status === "interrupted"
-            ? "Generation was interrupted"
-            : "Generation failed"}
+          {copy ? copy.title : status === "interrupted" ? "Generation was interrupted" : "Generation failed"}
         </h2>
       </div>
-      <p className="mt-2 text-sm text-muted">
-        {status === "interrupted"
-          ? "The service restarted before this job finished."
-          : "Something went wrong while generating your film."}
-        {error ? ` (${error})` : ""}
-      </p>
-      <p className="mt-1 text-sm text-muted">
-        Resuming reuses everything already generated and only redoes what's
-        missing.
-      </p>
+
+      {copy ? (
+        <>
+          <p className="mt-2 text-sm text-muted">{copy.why}</p>
+          <p className="mt-1 text-sm text-muted">{copy.choice}</p>
+        </>
+      ) : (
+        <>
+          <p className="mt-2 text-sm text-muted">
+            {status === "interrupted"
+              ? "The service restarted before this film finished."
+              : "Something went wrong while making your film."}
+            {error ? ` (${error})` : ""}
+          </p>
+          <p className="mt-1 text-sm text-muted">
+            Resuming reuses everything already made and only redoes what&apos;s missing.
+          </p>
+        </>
+      )}
+
       <div className="mt-4 flex flex-wrap items-center gap-3">
+        {copy && (
+          <button type="button" onClick={() => run("finish")} disabled={busy !== null} className={primary}>
+            {busy === "finish" ? (
+              <>
+                <Spinner /> Finishing…
+              </>
+            ) : (
+              copy.finish
+            )}
+          </button>
+        )}
         <button
           type="button"
-          onClick={resume}
-          disabled={busy}
-          className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-brand-cyan to-brand-violet px-5 py-2 text-sm font-medium text-white shadow-glow transition-all hover:shadow-glow-violet disabled:opacity-50"
+          onClick={() => run("resume")}
+          disabled={busy !== null}
+          className={copy ? secondary : primary}
         >
-          {busy ? (
+          {busy === "resume" ? (
             <>
               <Spinner /> Resuming…
             </>
+          ) : copy ? (
+            copy.retry
           ) : (
             "Resume generation"
           )}

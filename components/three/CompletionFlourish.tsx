@@ -1,8 +1,9 @@
 "use client";
 
+import { useWebGLSupported } from "@/hooks/useWebGLSupported";
 import { Canvas } from "@react-three/fiber";
 import { Bloom, EffectComposer } from "@react-three/postprocessing";
-import { useEffect, useState } from "react";
+
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { CompletionScene } from "./scenes/CompletionScene";
 
@@ -12,16 +13,7 @@ import { CompletionScene } from "./scenes/CompletionScene";
  *  overlay for a few seconds, so it never blocks the finished video. */
 export function CompletionFlourish() {
   const reduced = usePrefersReducedMotion();
-  const [webgl, setWebgl] = useState(true);
-
-  useEffect(() => {
-    try {
-      const c = document.createElement("canvas");
-      setWebgl(!!(c.getContext("webgl") || c.getContext("experimental-webgl")));
-    } catch {
-      setWebgl(false);
-    }
-  }, []);
+  const webgl = useWebGLSupported();
 
   if (reduced || !webgl) return null;
 

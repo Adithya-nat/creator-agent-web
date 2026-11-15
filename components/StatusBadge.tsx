@@ -4,8 +4,8 @@ const MAP: Record<JobStatus, { label: string; text: string; dot: string }> = {
   queued: { label: "Queued", text: "text-muted", dot: "bg-muted" },
   running: {
     label: "Generating",
-    text: "text-brand-cyan",
-    dot: "bg-brand-cyan animate-pulseGlow",
+    text: "text-accent",
+    dot: "bg-accent animate-pulseGlow",
   },
   completed: { label: "Completed", text: "text-state-ok", dot: "bg-state-ok" },
   completed_with_warnings: {

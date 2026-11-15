@@ -10,13 +10,13 @@ export function RecentJobs() {
 
   return (
     <div className="mt-10 w-full">
-      <div className="mb-2 text-xs uppercase tracking-wider text-muted">
+      <div className="mb-2 text-sm text-muted">
         Recent on this device
       </div>
       <ul className="flex flex-wrap gap-2">
         {jobs.map((j) => (
           <li key={j.id} className="group">
-            <div className="flex items-center gap-1 rounded-full border border-line bg-surface/40 pl-1 pr-1 text-sm backdrop-blur-md transition-colors hover:border-brand-cyan/40">
+            <div className="flex items-center gap-1 rounded-full border border-line bg-surface/40 pl-1 pr-1 text-sm backdrop-blur-md transition-colors hover:border-accent/40">
               <Link
                 href={`/status/${j.id}`}
                 className="flex items-center gap-2 rounded-full px-3 py-1.5"

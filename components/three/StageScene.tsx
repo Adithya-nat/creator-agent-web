@@ -1,13 +1,14 @@
 "use client";
 
+import { useWebGLSupported } from "@/hooks/useWebGLSupported";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { Bloom, EffectComposer } from "@react-three/postprocessing";
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { deriveStageSignals, type StageSignals } from "@/lib/stageSignals";
 import type { JobStatus, JobStatusResponse, LogLine, StageRef } from "@/lib/types";
 import { AssembleScene } from "./scenes/AssembleScene";
+import { AudioScene } from "./scenes/AudioScene";
 import { DesignScene } from "./scenes/DesignScene";
 import { FramesScene } from "./scenes/FramesScene";
 import { ReflectionScene } from "./scenes/ReflectionScene";
@@ -49,10 +50,14 @@ function ActiveScene({ signals, reduced }: { signals: StageSignals; reduced: boo
       return <DesignScene signal={sig} reduced={reduced} />;
     case "image_gen":
       return <FramesScene signal={sig} reduced={reduced} frames={signals.frames} />;
+    case "narration":
+    case "captions":
+    case "music":
+      return <AudioScene signal={sig} reduced={reduced} />;
     case "motion":
-      // Reuse the film-reel scene for the animate stage (no bespoke 3D needed).
-      return <AssembleScene signal={sig} reduced={reduced} />;
+      return <FramesScene signal={sig} reduced={reduced} frames={signals.frames} />;
     case "assembler":
+    case "publish_kit":
       return <AssembleScene signal={sig} reduced={reduced} />;
     default:
       return null;
@@ -65,7 +70,7 @@ function Fallback2D({ signals }: { signals: StageSignals }) {
   return (
     <div className="flex h-full w-full items-center justify-center">
       <div className="text-center">
-        <div className="mx-auto mb-3 h-16 w-16 animate-spin rounded-full border-2 border-brand-cyan/30 border-t-brand-cyan" />
+        <div className="mx-auto mb-3 h-16 w-16 animate-spin rounded-full border-2 border-accent/30 border-t-accent" />
         <p className="text-xs text-muted">{pct}% complete</p>
       </div>
     </div>
@@ -74,21 +79,14 @@ function Fallback2D({ signals }: { signals: StageSignals }) {
 
 export function StageScene(props: StageSceneProps) {
   const reduced = usePrefersReducedMotion();
-  const [supported, setSupported] = useState(true);
+  const supported = useWebGLSupported();
 
-  useEffect(() => {
-    try {
-      const c = document.createElement("canvas");
-      setSupported(!!(c.getContext("webgl") || c.getContext("experimental-webgl")));
-    } catch {
-      setSupported(false);
-    }
-  }, []);
-
+  const { stages, currentStage, status, job, logsByStage } = props;
   const signals = useMemo(
-    () => deriveStageSignals(props),
+    () => deriveStageSignals({ ...props, stages, currentStage, status, job, logsByStage }),
     // Recompute only when a real state slice changes (props is re-allocated each render).
-    [props.stages, props.currentStage, props.status, props.job, props.logsByStage],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [stages, currentStage, status, job, logsByStage],
   );
 
   if (!supported) return <Fallback2D signals={signals} />;
@@ -101,24 +99,14 @@ export function StageScene(props: StageSceneProps) {
         gl={{ antialias: true, alpha: true }}
         frameloop={reduced ? "demand" : "always"}
       >
-        <ambientLight intensity={0.9} />
-        <pointLight position={[4, 4, 6]} intensity={80} />
+        {/* Every stage is built from unlit poster cards: no lights, and no bloom
+            pass (its haze clipped at the canvas edge and read as a grey box). */}
         {reduced ? (
           <ActiveScene signals={signals} reduced />
         ) : (
           <Appear key={signals.active ?? "done"}>
             <ActiveScene signals={signals} reduced={false} />
           </Appear>
-        )}
-        {!reduced && (
-          <EffectComposer>
-            <Bloom
-              intensity={0.9}
-              luminanceThreshold={0.15}
-              luminanceSmoothing={0.5}
-              mipmapBlur
-            />
-          </EffectComposer>
         )}
       </Canvas>
     </div>

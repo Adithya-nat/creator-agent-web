@@ -1,77 +1,34 @@
 import { describe, expect, it } from "vitest";
-import { formatMotionCoverage, motionBadge } from "@/lib/motionCoverage";
+import { formatMotionCoverage, modelLabel, motionBadge, voiceBadge } from "@/lib/motionCoverage";
 import type { MotionCoverage, StoryboardScene } from "@/lib/types";
 
-const scene: StoryboardScene = {
-  order: 1,
-  narration: "A beat",
-  frame_url: "/frame",
-  video_url: "/motion",
-  status: "ok",
+const base: MotionCoverage = {
+  total: 0, animated: 0, generative: 0, local_generative: 0, composited: 0,
+  kenburns: 0, still: 0, by_renderer: {}, by_model: {},
 };
 
-describe("formatMotionCoverage", () => {
-  it("returns nothing for an old backend with no coverage metadata", () => {
+const scene: StoryboardScene = {
+  order: 1, narration: "x", frame_url: null, video_url: null, status: "ok",
+};
+
+describe("motion coverage", () => {
+  it("is null without coverage", () => {
     expect(formatMotionCoverage(undefined)).toBeNull();
+    expect(formatMotionCoverage(base)).toBeNull();
   });
 
-  it("shows actual Veo model allocation and total coverage", () => {
-    const coverage: MotionCoverage = {
-      total: 15,
-      animated: 15,
-      generative: 15,
-      local_generative: 0,
-      composited: 0,
-      kenburns: 0,
-      still: 0,
-      by_renderer: { veo: 15 },
-      by_model: {
-        "veo-3.1-lite-generate-preview": 10,
-        "veo-3.1-fast-generate-preview": 5,
-      },
-    };
-    expect(formatMotionCoverage(coverage)).toBe(
-      "15/15 animated · 10 Lite · 5 Fast",
-    );
+  it("summarises Omni-filmed scenes and fallbacks", () => {
+    const c = { ...base, total: 10, animated: 10, generative: 8, kenburns: 2,
+      by_model: { "gemini-omni-1.2-flash": 7, "gemini-omni-1.1-flash": 1 } };
+    expect(formatMotionCoverage(c)).toBe("8/10 AI-filmed · 7 Omni 1.2 · 1 Omni 1.1 · 2 fallback");
   });
 
-  it("shows non-generative fallback coverage honestly", () => {
-    const coverage: MotionCoverage = {
-      total: 15,
-      animated: 15,
-      generative: 12,
-      local_generative: 0,
-      composited: 3,
-      kenburns: 0,
-      still: 0,
-      by_renderer: { veo: 12, compositor: 3 },
-      by_model: {},
-    };
-    expect(formatMotionCoverage(coverage)).toBe(
-      "15/15 animated · 12 generative · 3 composited",
-    );
-  });
-});
-
-describe("motionBadge", () => {
-  it("stays hidden for old successful scene payloads", () => {
+  it("labels models and badges", () => {
+    expect(modelLabel("gemini-omni-1.2-flash")).toBe("Omni 1.2");
     expect(motionBadge(scene)).toBeNull();
-  });
-
-  it("labels specific Veo models", () => {
-    expect(
-      motionBadge({
-        ...scene,
-        motion_kind: "generative",
-        motion_model: "veo-3.1-lite-generate-preview",
-      }),
-    ).toBe("Lite");
-  });
-
-  it("labels composited and legacy degraded fallbacks", () => {
-    expect(motionBadge({ ...scene, motion_kind: "composited" })).toBe(
-      "composited",
-    );
-    expect(motionBadge({ ...scene, status: "degraded" })).toBe("fallback");
+    expect(motionBadge({ ...scene, motion_kind: "generative", motion_model: "gemini-omni-1.2-flash" })).toBe("Omni 1.2");
+    expect(motionBadge({ ...scene, motion_kind: "kenburns" })).toBe("fallback");
+    expect(voiceBadge({ ...scene, voice: "on_camera" })?.label).toBe("Spoken on camera");
+    expect(voiceBadge({ ...scene, voice: "silent" })).toBeNull();
   });
 });

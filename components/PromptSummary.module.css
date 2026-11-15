@@ -1,0 +1,71 @@
+/* Full-prompt dialog: native <dialog> (focus trap, Esc, focus return, top
+   layer) with enter/exit motion per the polish rules: enter 300ms opacity +
+   4px blur + 12px rise; exit shorter (150ms) and smaller. Uses
+   @starting-style + allow-discrete so the exit animates before display:none.
+   The global reduced-motion rule collapses these durations to ~0. */
+
+.dialog {
+  width: min(42rem, calc(100vw - 2rem));
+  max-height: min(80vh, 44rem);
+  margin: auto;
+  padding: 0;
+  border: 1px solid transparent; /* keeps an edge in forced-colors mode */
+  border-radius: 1.25rem;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  box-shadow:
+    0 0 0 1px rgba(239, 232, 218, 0.1),
+    0 24px 64px -24px rgba(0, 0, 0, 0.7);
+  overscroll-behavior: contain;
+
+  opacity: 0;
+  translate: 0 12px;
+  filter: blur(4px);
+  transition-property: opacity, translate, filter, display, overlay;
+  transition-duration: 150ms;
+  transition-timing-function: ease-out;
+  transition-behavior: allow-discrete;
+}
+
+.dialog[open] {
+  display: flex;
+  flex-direction: column;
+  opacity: 1;
+  translate: 0 0;
+  filter: blur(0);
+  transition-duration: 300ms;
+}
+
+@starting-style {
+  .dialog[open] {
+    opacity: 0;
+    translate: 0 12px;
+    filter: blur(4px);
+  }
+}
+
+.dialog::backdrop {
+  background: color-mix(in oklab, var(--color-midnight) 72%, transparent);
+  backdrop-filter: blur(6px);
+  opacity: 0;
+  transition-property: opacity, display, overlay;
+  transition-duration: 150ms;
+  transition-timing-function: ease-out;
+  transition-behavior: allow-discrete;
+}
+
+.dialog[open]::backdrop {
+  opacity: 1;
+  transition-duration: 300ms;
+}
+
+@starting-style {
+  .dialog[open]::backdrop {
+    opacity: 0;
+  }
+}
+
+.body {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
