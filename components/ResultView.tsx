@@ -5,6 +5,7 @@ import { CastStrip } from "@/components/CastStrip";
 import { Filmstrip } from "@/components/Filmstrip";
 import { PublishPanel } from "@/components/PublishPanel";
 import { ScriptPanel } from "@/components/ScriptPanel";
+import { FilmReviewCard } from "@/components/FilmReviewCard";
 import { Spinner } from "@/components/Spinner";
 import { VideoPlayer } from "@/components/VideoPlayer";
 import { api, ApiError } from "@/lib/api";
@@ -146,6 +147,14 @@ export function ResultView({
                 </span>
               ))}
           </div>
+          {content.brief && (
+            <p className="text-sm text-muted">
+              {[content.brief.format, content.brief.era === "period" ? content.brief.period : null, content.brief.dialect]
+                .filter(Boolean)
+                .join(" · ")}
+            </p>
+          )}
+          {content.film_review && <FilmReviewCard review={content.film_review} />}
           {motionSummary && (
             <p className="text-sm text-accent" title="Motion renderer coverage">
               {motionSummary}

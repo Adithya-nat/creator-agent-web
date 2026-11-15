@@ -109,11 +109,40 @@ export interface SceneLine {
 
 export type SceneVoice = "narrator" | "on_camera" | "off_screen" | "silent";
 
+export interface SceneShot {
+  size: string;
+  action: string;
+  lines: SceneLine[];
+}
+
+export interface BriefView {
+  format: string;
+  hook: string;
+  logline: string;
+  setting: string;
+  era: "modern" | "period" | string;
+  period: string;
+  dialect: string;
+}
+
+export interface FilmReview {
+  score: number;
+  coherence: number;
+  continuity: number;
+  dialogue: number;
+  hook: number;
+  human_made: number;
+  retelling: string;
+  confusing_moments: string[];
+}
+
 export interface StoryboardScene {
   order: number;
   narration: string; // the on-screen caption actually used
   mode?: "narration" | "dialogue";
   lines?: SceneLine[];
+  shots?: SceneShot[];
+  location?: string;
   transcript?: string;
   voice?: SceneVoice;
   frame_url: string | null;
@@ -161,6 +190,8 @@ export interface StoryboardContent {
   cost_usd?: number;
   cast?: CastMember[];
   motion_coverage?: MotionCoverage | null;
+  brief?: BriefView | null;
+  film_review?: FilmReview | null;
   scenes: StoryboardScene[];
 }
 
@@ -246,7 +277,9 @@ export type Duration = 30 | 60;
 
 // Friendly labels for the pipeline stages (backend names -> human copy).
 export const STAGE_LABELS: Record<string, string> = {
-  script_writer: "Writing the script",
+  brief: "Planning the film",
+  script_writer: "Writing the screenplay",
+  dialogue_pass: "Polishing the dialogue",
   reflection: "Refining the story",
   designer: "Designing the look",
   image_gen: "Generating frames",
@@ -254,14 +287,17 @@ export const STAGE_LABELS: Record<string, string> = {
   motion: "Filming scenes with AI video",
   captions: "Syncing dialogue captions",
   music: "Composing the score",
-  assembler: "Assembling the film",
+  assembler: "Editing the film",
+  film_review: "Reviewing the cut",
   publish_kit: "Writing post captions",
 };
 
 // Fallback order used only when a job has no `pipeline` (old server / pre-first
 // poll). The live order comes from JobStatusResponse.pipeline via stageOrderOf().
 export const STAGE_ORDER = [
+  "brief",
   "script_writer",
+  "dialogue_pass",
   "reflection",
   "designer",
   "image_gen",
@@ -270,5 +306,6 @@ export const STAGE_ORDER = [
   "captions",
   "music",
   "assembler",
+  "film_review",
   "publish_kit",
 ];
