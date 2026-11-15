@@ -93,6 +93,8 @@ function mockLive(idx: number, frame: number, total: number, origin: string): Li
     narration_url: null,
     music_url: null,
     cover_url: atOrPast("publish_kit") ? img(0) : null,
+    brief: past("brief") ? { format: "short drama", hook: "A green bottle cracks against the lighthouse rocks.", logline: "" } : null,
+    review: past("film_review") ? { score: 84, retelling: "A lighthouse keeper reads her late father’s letter and lets the lamp go dark." } : null,
     caption: atOrPast("publish_kit")
       ? "She kept the light for forty years. Tonight it kept her. #shortfilm #lighthouse"
       : null,

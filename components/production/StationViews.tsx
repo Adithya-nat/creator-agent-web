@@ -136,11 +136,17 @@ function Board({ shots, live, reduced, stageName, view }: ViewProps) {
     <SetPiece className="gap-8">
       <div className="flex flex-col items-center gap-4">
         {view === "writers" && (
-          <div className="h-8 text-center">
+          <div className="min-h-8 max-w-xl text-center">
             {live?.title ? (
               <TypeLine text={live.title} reduced={reduced} className="font-display text-2xl font-extrabold uppercase tracking-wide text-ink" />
             ) : (
               <span className={`${label} text-muted`}>Untitled, draft one</span>
+            )}
+            {live?.brief?.hook && (
+              <motion.p {...rise} transition={{ ...ENTER, delay: 0.3 }} className="mt-1 line-clamp-1 text-xs text-muted">
+                <span className={`${label} mr-1.5 text-accent`}>Hook</span>
+                {live.brief.hook}
+              </motion.p>
             )}
           </div>
         )}
@@ -646,6 +652,18 @@ function Release({ shots, live, reduced, tint }: ViewProps) {
           {live?.title ?? "Your film"}
         </p>
         {live?.caption && <TypeLine text={live.caption} reduced={reduced} className="block text-sm leading-relaxed text-ink/85" />}
+        {live?.review?.score != null && (
+          <motion.div {...rise} transition={{ ...ENTER, delay: 0.3 }} className="flex items-baseline gap-2">
+            <span className={`${label} text-muted`}>Test screening</span>
+            <span className="font-display text-xl font-extrabold tabular-nums text-ink">
+              {live.review.score}
+              <span className="text-xs text-muted">/100</span>
+            </span>
+          </motion.div>
+        )}
+        {live?.review?.retelling && (
+          <p className="line-clamp-2 text-xs italic text-muted">“{live.review.retelling}”</p>
+        )}
         <div className="flex gap-1.5 pt-1">
           {["TikTok", "Reels", "Shorts"].map((p) => (
             <span key={p} className="rounded-full bg-white/[0.06] px-2.5 py-1 text-[11px] text-muted">

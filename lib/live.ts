@@ -29,4 +29,8 @@ export interface LiveAssets {
   music_url: string | null;
   cover_url: string | null;
   caption: string | null;
+  /** Creative brief / test-screening review: absent on pipelines without
+   *  those stages (and on servers that predate them). */
+  brief?: { format: string; hook: string; logline: string } | null;
+  review?: { score: number | null; retelling: string } | null;
 }
