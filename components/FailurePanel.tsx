@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useAccount } from "@/components/account/AccountProvider";
 import { Spinner } from "@/components/Spinner";
 import { api } from "@/lib/api";
 import type { VideoGap } from "@/lib/types";
@@ -21,8 +22,14 @@ export function FailurePanel({
 }) {
   const [busy, setBusy] = useState<Action | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+  const { needsKey, hasKey, openKeyDialog } = useAccount();
 
   const run = async (action: Action) => {
+    if (needsKey && !hasKey) {
+      setMsg("Add your Gemini key to resume this film.");
+      openKeyDialog();
+      return;
+    }
     setBusy(action);
     setMsg(null);
     try {
@@ -32,7 +39,12 @@ export function FailurePanel({
         window.location.reload();
         return;
       }
-      if (res.status === 409) {
+      if (res.status === 400) {
+        setMsg("Add your Gemini key to resume this film.");
+        openKeyDialog();
+      } else if (res.status === 429) {
+        setMsg("You already have a film rendering. Try again when it finishes.");
+      } else if (res.status === 409) {
         setMsg("This film is already running or already finished.");
       } else if (res.status === 404 || res.status === 410) {
         setMsg("This film has expired and can no longer be resumed.");

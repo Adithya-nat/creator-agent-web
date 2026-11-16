@@ -1,6 +1,6 @@
 {
-  "name": "storyboard-agent-frontend",
-  "version": "0.1.0",
+  "name": "creator-agent-web",
+  "version": "0.2.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -8,15 +8,18 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "auth:migrate": "node scripts/auth-schema.mjs && auth migrate --config scripts/auth-config.ts --yes"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.9",
     "@react-three/fiber": "^9.8.2",
     "@react-three/postprocessing": "^3.2.2",
+    "better-auth": "^1.7.25",
     "framer-motion": "^14.12.0",
     "lucide-react": "^1.72.0",
     "next": "^16.4.6",
+    "pg": "^8.23.1",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "recharts": "^3.10.1",
@@ -27,10 +30,12 @@
     "@react-three/test-renderer": "^9.1.1",
     "@tailwindcss/postcss": "^4.3.5",
     "@types/node": "^22",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@types/three": "^0.187.0",
     "@vitejs/plugin-react": "^6.3.0",
+    "auth": "^1.7.25",
     "eslint": "^10.14.0",
     "eslint-config-next": "^16.4.6",
     "postcss": "^8.5.32",

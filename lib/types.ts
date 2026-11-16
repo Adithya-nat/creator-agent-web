@@ -95,6 +95,37 @@ export interface JobCreatedResponse {
   status: JobStatus;
 }
 
+export interface JobListItem {
+  job_id: string;
+  status: JobStatus;
+  prompt: string;
+  duration: number;
+  style: string;
+  language: string;
+  cost_usd: number;
+  created_at: string;
+  expires_at: string;
+}
+
+export interface Me {
+  id: string;
+  email: string;
+  name: string;
+  allowed: boolean;
+  auth_mode: "none" | "jwt";
+  key_mode: "server" | "byok";
+  retention_hours: number;
+  media_token: string | null;
+  media_token_expires_at: string | null;
+}
+
+export interface KeyCheck {
+  ok: boolean;
+  video_ok?: boolean;
+  message: string;
+  roles: Record<string, { ok: string[]; missing: string[] }>;
+}
+
 export interface LogsResponse {
   job_id: string;
   logs: LogLine[];

@@ -27,7 +27,7 @@ const tamil = Noto_Sans_Tamil({
 });
 
 export const metadata: Metadata = {
-  title: "Storyboard — turn an idea into a short film",
+  title: "Creator Agent: turn one line into a short film",
   description:
     "Write one line and get a vertical short film: an original cast, AI-filmed scenes with spoken dialogue, music, captions and post copy. English or Tamil.",
 };
