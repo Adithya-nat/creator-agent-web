@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { KeyDialog } from "@/components/account/KeyDialog";
 import { AccessPending } from "@/components/account/AccessPending";
 import { Spinner } from "@/components/Spinner";
@@ -32,6 +32,7 @@ export const useAccount = () => useContext(Ctx);
 
 const PUBLIC = ["/login"];
 const REFRESH_BEFORE_MS = 60 * 60 * 1000;
+const RETRY_MS = 15_000;
 
 export function AccountProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -43,32 +44,47 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
   );
   const [keyOpen, setKeyOpen] = useState(false);
   const isPublic = PUBLIC.some((p) => pathname?.startsWith(p));
+  const pathRef = useRef(pathname);
+  useEffect(() => {
+    pathRef.current = pathname;
+  }, [pathname]);
 
-  const load = useCallback(async () => {
-    try {
-      const m = await api.me();
-      setMe(m);
-      setMediaToken(m.media_token);
-      setState(m.allowed ? "ready" : "pending");
-      return m;
-    } catch (e) {
-      if (e instanceof ApiError && e.status === 401 && AUTH_ENABLED) {
-        clearSession();
-        router.replace(`/login?next=${encodeURIComponent(pathname || "/")}`);
-        return null;
+  // "retry" = a network/server error; null = redirected to sign-in.
+  const load = useCallback(
+    async (isAlive: () => boolean): Promise<Me | "retry" | null> => {
+      try {
+        const m = await api.me();
+        if (!isAlive()) return null;
+        setMe(m);
+        setMediaToken(m.media_token);
+        setState(m.allowed ? "ready" : "pending");
+        return m;
+      } catch (e) {
+        if (!isAlive()) return null;
+        if (e instanceof ApiError && e.status === 401 && AUTH_ENABLED) {
+          clearSession();
+          router.replace(`/login?next=${encodeURIComponent(pathRef.current || "/")}`);
+          return null;
+        }
+        setState(AUTH_ENABLED ? "error" : "ready");
+        return AUTH_ENABLED ? "retry" : null;
       }
-      setState(AUTH_ENABLED ? "error" : "ready");
-      return null;
-    }
-  }, [pathname, router]);
+    },
+    [router],
+  );
 
   useEffect(() => {
     if (isPublic) return;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let alive = true;
     const tick = async () => {
-      const m = await load();
-      if (!alive || !m?.media_token_expires_at) return;
+      const m = await load(() => alive);
+      if (!alive) return;
+      if (m === "retry") {
+        timer = setTimeout(tick, RETRY_MS);
+        return;
+      }
+      if (!m?.media_token_expires_at) return;
       const wait = new Date(m.media_token_expires_at).getTime() - Date.now() - REFRESH_BEFORE_MS;
       timer = setTimeout(tick, Math.max(60_000, wait));
     };
@@ -77,9 +93,7 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
       alive = false;
       if (timer) clearTimeout(timer);
     };
-    // reload only when moving between public and app routes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isPublic]);
+  }, [isPublic, load]);
 
   const signOut = useCallback(async () => {
     clearSession();

@@ -5,6 +5,7 @@ type Cached = { token: string; exp: number };
 let cached: Cached | null = null;
 let inflight: Promise<string | null> | null = null;
 let mediaToken: string | null = null;
+let generation = 0; // bumped on sign-out so a late token response is dropped
 
 const REFRESH_EARLY_MS = 60_000;
 
@@ -18,9 +19,11 @@ function expiry(token: string): number {
 }
 
 async function fetchToken(): Promise<string | null> {
+  const gen = generation;
   const { authClient } = await import("./authClient");
   const { data } = await authClient.token();
   const token = data?.token ?? null;
+  if (gen !== generation) return null;
   cached = token ? { token, exp: expiry(token) } : null;
   return token;
 }
@@ -29,13 +32,18 @@ async function fetchToken(): Promise<string | null> {
 export async function getApiToken(now = Date.now()): Promise<string | null> {
   if (!AUTH_ENABLED) return null;
   if (cached && cached.exp - REFRESH_EARLY_MS > now) return cached.token;
-  inflight ??= fetchToken().finally(() => {
-    inflight = null;
-  });
+  if (!inflight) {
+    const p = fetchToken().finally(() => {
+      if (inflight === p) inflight = null;
+    });
+    inflight = p;
+  }
   return inflight;
 }
 
 export function clearSession() {
+  generation += 1;
+  inflight = null;
   cached = null;
   mediaToken = null;
 }

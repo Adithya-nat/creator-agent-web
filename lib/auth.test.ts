@@ -33,6 +33,16 @@ describe("gemini key store", () => {
     expect(k.getGeminiKey()).toBeNull();
   });
 
+  it("reports a failed save and keeps the previous key", async () => {
+    const k = await import("./geminiKey");
+    k.setGeminiKey("AIza-old-key-1234567890", false);
+    vi.spyOn(window.sessionStorage, "setItem").mockImplementation(() => {
+      throw new Error("QuotaExceeded");
+    });
+    expect(k.setGeminiKey("AIza-new-key-1234567890", false)).toBe(false);
+    expect(k.getGeminiKey()).toBe("AIza-old-key-1234567890");
+  });
+
   it("notifies subscribers and masks keys", async () => {
     const k = await import("./geminiKey");
     const fn = vi.fn();
@@ -65,6 +75,22 @@ describe("api token cache", () => {
     expect(token).not.toHaveBeenCalled();
     expect(await s.getApiToken(950_000)).toBe("h.eyJleHAiOjIwMDB9.s");
     expect(token).toHaveBeenCalledTimes(1);
+  });
+
+  it("drops a token that arrives after sign-out", async () => {
+    vi.stubEnv("NEXT_PUBLIC_AUTH_ENABLED", "true");
+    let release!: (v: { data: { token: string } }) => void;
+    const token = vi.fn(() => new Promise<{ data: { token: string } }>((r) => (release = r)));
+    vi.doMock("./authClient", () => ({ authClient: { token } }));
+    const s = await import("./session");
+    const pending = s.getApiToken(0);
+    await Promise.resolve();
+    s.clearSession();
+    await vi.waitFor(() => expect(token).toHaveBeenCalled());
+    release({ data: { token: "h.eyJleHAiOjk5OTk5OTk5OTl9.s" } });
+    expect(await pending).toBeNull();
+    token.mockResolvedValueOnce({ data: { token: "h.eyJleHAiOjk5OTk5OTk5OTl9.new" } } as never);
+    expect(await s.getApiToken(0)).toBe("h.eyJleHAiOjk5OTk5OTk5OTl9.new");
   });
 
   it("signs media URLs once a media token is set", async () => {

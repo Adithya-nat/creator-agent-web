@@ -3,8 +3,9 @@
 import { Check, ExternalLink, KeyRound, Lock, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Spinner } from "@/components/Spinner";
+import { useGeminiKey } from "@/hooks/useGeminiKey";
 import { api, ApiError } from "@/lib/api";
-import { getGeminiKey, isRemembered, maskKey, setGeminiKey } from "@/lib/geminiKey";
+import { isRemembered, maskKey, setGeminiKey } from "@/lib/geminiKey";
 import type { KeyCheck } from "@/lib/types";
 
 const AI_STUDIO = "https://aistudio.google.com/apikey";
@@ -16,7 +17,7 @@ export function KeyDialog({ open, onClose }: { open: boolean; onClose: () => voi
   const [checking, setChecking] = useState(false);
   const [result, setResult] = useState<KeyCheck | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const saved = typeof window !== "undefined" ? getGeminiKey() : null;
+  const saved = useGeminiKey(); // hydration-safe: null on the server and first render
 
   useEffect(() => {
     const d = ref.current;
@@ -38,8 +39,9 @@ export function KeyDialog({ open, onClose }: { open: boolean; onClose: () => voi
     setResult(null);
     try {
       const r = await api.checkKey(k);
-      setResult(r);
-      if (r.ok) setGeminiKey(k, remember);
+      if (r.ok && !setGeminiKey(k, remember)) {
+        setError("The key works, but this browser blocked saving it. Allow site storage and try again.");
+      } else setResult(r);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Couldn't check the key.");
     }
@@ -104,7 +106,7 @@ export function KeyDialog({ open, onClose }: { open: boolean; onClose: () => voi
             className="w-full rounded-full border border-line bg-midnight/60 px-4 py-2.5 font-mono text-sm placeholder:text-muted/60 focus:border-accent/50 focus:outline-none"
           />
           <label className="flex items-center gap-2 text-sm text-muted">
-            <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
+            <input type="checkbox" checked={remember} disabled={checking} onChange={(e) => setRemember(e.target.checked)} />
             Remember on this device
           </label>
           <div className="flex flex-wrap items-center gap-3">

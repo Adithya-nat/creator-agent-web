@@ -108,13 +108,27 @@ export default function RetrievePage() {
 /** Signed-in: every film on the account from the last 24 hours, on any device. */
 function YourFilms() {
   const [jobs, setJobs] = useState<JobListItem[] | null>(null);
+  const [failed, setFailed] = useState(false);
+  const fetchJobs = () => api.listJobs().then(setJobs).catch(() => setFailed(true));
   useEffect(() => {
-    api.listJobs().then(setJobs).catch(() => setJobs([]));
+    fetchJobs();
   }, []);
+  const load = () => {
+    setFailed(false);
+    setJobs(null);
+    fetchJobs();
+  };
   return (
     <div className="mt-12">
       <h2 className="mb-3 font-display text-xl font-semibold text-ink">Your films</h2>
-      {jobs === null ? (
+      {failed ? (
+        <p className="text-sm text-state-bad">
+          Couldn&apos;t load your films.{" "}
+          <button className="text-accent underline" onClick={load}>
+            Try again
+          </button>
+        </p>
+      ) : jobs === null ? (
         <p className="text-sm text-muted">Loading…</p>
       ) : jobs.length === 0 ? (
         <p className="text-sm text-muted">No films in the last 24 hours.</p>

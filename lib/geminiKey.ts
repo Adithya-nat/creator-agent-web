@@ -34,23 +34,30 @@ export function isRemembered(): boolean {
   }
 }
 
-export function setGeminiKey(key: string | null, remember = false) {
-  for (const s of stores()) {
+/** Returns false when the browser blocks storage (the key would be lost). */
+export function setGeminiKey(key: string | null, remember = false): boolean {
+  const all = stores();
+  if (key && all.length === 0) return false;
+  let saved = !key;
+  if (key) {
+    const [session, local] = all;
+    try {
+      (remember ? local : session)?.setItem(STORE_KEY, key);
+      saved = true;
+    } catch {
+      return false; // keep whatever key was stored before
+    }
+  }
+  for (const s of all) {
+    if (key && s === (remember ? all[1] : all[0])) continue;
     try {
       s.removeItem(STORE_KEY);
     } catch {
       // ignore
     }
   }
-  if (key) {
-    const [session, local] = stores();
-    try {
-      (remember ? local : session)?.setItem(STORE_KEY, key);
-    } catch {
-      // ignore
-    }
-  }
   listeners.forEach((fn) => fn());
+  return saved;
 }
 
 export function subscribeGeminiKey(fn: () => void): () => void {

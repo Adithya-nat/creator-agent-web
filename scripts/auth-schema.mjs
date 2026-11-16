@@ -1,5 +1,8 @@
 // Creates the Postgres schema Better Auth's tables live in (separate from the API's tables).
+import nextEnv from "@next/env";
 import pg from "pg";
+
+nextEnv.loadEnvConfig(process.cwd()); // .env.local, like the app itself
 
 const url = process.env.DATABASE_URL;
 if (!url) {
