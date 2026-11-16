@@ -8,6 +8,7 @@ import { Spinner } from "@/components/Spinner";
 import { useGeminiKey } from "@/hooks/useGeminiKey";
 import { api, ApiError } from "@/lib/api";
 import { AUTH_ENABLED } from "@/lib/authConfig";
+import { getGeminiKey } from "@/lib/geminiKey";
 import { clearSession, setMediaToken } from "@/lib/session";
 import type { Me } from "@/lib/types";
 
@@ -30,7 +31,16 @@ const Ctx = createContext<Account>({
 
 export const useAccount = () => useContext(Ctx);
 
-const PUBLIC = ["/login"];
+const PUBLIC = ["/login", "/signup"];
+
+/** True once after a brand-new account lands on /?welcome=1; strips the flag from the URL. */
+function takeWelcome(): boolean {
+  const url = new URL(window.location.href);
+  if (url.searchParams.get("welcome") !== "1") return false;
+  url.searchParams.delete("welcome");
+  window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
+  return true;
+}
 const REFRESH_BEFORE_MS = 60 * 60 * 1000;
 const RETRY_MS = 15_000;
 
@@ -58,6 +68,7 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
         setMe(m);
         setMediaToken(m.media_token);
         setState(m.allowed ? "ready" : "pending");
+        if (m.allowed && takeWelcome() && m.key_mode === "byok" && !getGeminiKey()) setKeyOpen(true);
         return m;
       } catch (e) {
         if (!isAlive()) return null;
