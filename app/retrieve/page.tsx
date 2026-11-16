@@ -2,9 +2,13 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { StatusBadge } from "@/components/StatusBadge";
 import { TopBar } from "@/components/TopBar";
 import { useRecentJobs } from "@/hooks/useRecentJobs";
+import { api } from "@/lib/api";
+import { AUTH_ENABLED } from "@/lib/authConfig";
+import type { JobListItem } from "@/lib/types";
 
 export default function RetrievePage() {
   const router = useRouter();
@@ -24,8 +28,8 @@ export default function RetrievePage() {
           Retrieve a job
         </h1>
         <p className="mt-2 text-muted">
-          Paste the job ID you saved. Jobs are kept for{" "}
-          <span className="text-ink">24 hours</span> after creation.
+          Paste the job ID you saved. Everything is deleted{" "}
+          <span className="text-ink">24 hours</span> after a film starts.
         </p>
 
         <form
@@ -53,7 +57,9 @@ export default function RetrievePage() {
           </button>
         </form>
 
-        <div className="mt-12">
+        {AUTH_ENABLED && <YourFilms />}
+
+        <div className={AUTH_ENABLED ? "hidden" : "mt-12"}>
           <h2 className="mb-3 font-display text-xl font-semibold text-ink">
             Recent on this device
           </h2>
@@ -96,5 +102,48 @@ export default function RetrievePage() {
         </div>
       </section>
     </main>
+  );
+}
+
+/** Signed-in: every film on the account from the last 24 hours, on any device. */
+function YourFilms() {
+  const [jobs, setJobs] = useState<JobListItem[] | null>(null);
+  const [failed, setFailed] = useState(false);
+  const fetchJobs = () => api.listJobs().then(setJobs).catch(() => setFailed(true));
+  useEffect(() => {
+    fetchJobs();
+  }, []);
+  const load = () => {
+    setFailed(false);
+    setJobs(null);
+    fetchJobs();
+  };
+  return (
+    <div className="mt-12">
+      <h2 className="mb-3 font-display text-xl font-semibold text-ink">Your films</h2>
+      {failed ? (
+        <p className="text-sm text-state-bad">
+          Couldn&apos;t load your films.{" "}
+          <button className="text-accent underline" onClick={load}>
+            Try again
+          </button>
+        </p>
+      ) : jobs === null ? (
+        <p className="text-sm text-muted">Loading…</p>
+      ) : jobs.length === 0 ? (
+        <p className="text-sm text-muted">No films in the last 24 hours.</p>
+      ) : (
+        <ul className="space-y-2">
+          {jobs.map((j) => (
+            <li key={j.job_id} className="glass-2 px-4 py-3">
+              <Link href={`/status/${j.job_id}`} className="flex items-center justify-between gap-3" title={j.prompt}>
+                <span className="min-w-0 flex-1 truncate text-ink">{j.prompt || "Untitled"}</span>
+                <StatusBadge status={j.status} />
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }

@@ -1,7 +1,12 @@
 "use client";
 
+import { AnimatePresence, motion } from "framer-motion";
 import dynamic from "next/dynamic";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { PausePanel } from "@/components/controls/PausePanel";
+import { ToastProvider } from "@/components/controls/primitives";
+import { RunControlDock } from "@/components/controls/RunControlDock";
+import { ENTER, EXIT } from "@/components/production/motion";
 import { FailurePanel } from "@/components/FailurePanel";
 import { JobErrorPanel } from "@/components/JobErrorPanel";
 import { JobIdChip } from "@/components/JobIdChip";
@@ -13,9 +18,12 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { TopBar } from "@/components/TopBar";
 import { type ConnState, useJobStream } from "@/hooks/useJobStream";
 import { liveSignal, useLiveAssets } from "@/hooks/useLiveAssets";
+import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
+import { useCheckpoint, useRunControls } from "@/hooks/useRunControls";
 import { formatTokens } from "@/lib/format";
+import { breakableStages, controlPhase, resumeTarget, toggleStage } from "@/lib/runControls";
 import { stageOrderOf } from "@/lib/stageSignals";
-import { isTerminal } from "@/lib/types";
+import { isFinished } from "@/lib/types";
 
 const CompletionFlourish = dynamic(
   () =>
@@ -46,14 +54,56 @@ function ConnDot({ connection }: { connection: ConnState }) {
 }
 
 export function StatusView({ jobId }: { jobId: string }) {
+  return (
+    <ToastProvider>
+      <StatusViewInner jobId={jobId} />
+    </ToastProvider>
+  );
+}
+
+function StatusViewInner({ jobId }: { jobId: string }) {
   const s = useJobStream(jobId);
   const status = s.status;
+  const reduced = usePrefersReducedMotion();
 
-  const terminal = status ? isTerminal(status) : false;
+  // "finished" = done for good; a paused film is resumable, so it keeps the line.
+  const finished = status ? isFinished(status) : false;
   const success =
     status === "completed" || status === "completed_with_warnings";
   const failed = status === "failed" || status === "interrupted";
-  const live = useLiveAssets(jobId, liveSignal(s.assetsVersion, s.job, s.stages), !s.error && !terminal);
+  const phase = controlPhase(status);
+  const held = phase === "pausing" || phase === "paused";
+  const live = useLiveAssets(jobId, liveSignal(s.assetsVersion, s.job, s.stages), !s.error && !finished);
+
+  // Run controls: checkpoint (per-unit state + cost), actions, breakpoints.
+  const [cpNonce, setCpNonce] = useState(0);
+  const { checkpoint, observedAt, supported } = useCheckpoint(jobId, status, cpNonce);
+  const { restart } = s;
+  const onResumed = useCallback(() => {
+    restart();
+    setCpNonce((n) => n + 1);
+  }, [restart]);
+  // The checkpoint is the fresher source (and carries its read time); the job snapshot
+  // covers servers or moments without one (read time unknown = 0).
+  const controls = useRunControls(
+    jobId,
+    status,
+    checkpoint?.breakpoints ?? s.job?.breakpoints,
+    checkpoint ? observedAt : 0,
+    onResumed,
+  );
+  const order = stageOrderOf(s.job);
+  const breakable = breakableStages(order, s.stages);
+  const showControls = supported && (phase === "running" || held);
+  const trackControls = showControls
+    ? {
+        breakpoints: controls.breakpoints,
+        breakable,
+        onToggle: (name: string) => controls.setBreakpoints(toggleStage(controls.breakpoints, name, order)),
+      }
+    : undefined;
+  const target = resumeTarget(checkpoint);
+  const pausedNote = target.unit != null ? target.label.replace("Resume from", "Resumes at") : target.stage ? target.label.replace("Resume at", "Resumes at") : undefined;
 
   // Celebratory burst on completion: fires once when the job reaches success
   // (also when re-opening an already-finished job), then self-clears. Rendered
@@ -79,7 +129,7 @@ export function StatusView({ jobId }: { jobId: string }) {
   return (
     <main className="relative min-h-screen">
       <TopBar />
-      <div className="relative mx-auto max-w-4xl px-5 pb-24 pt-24">
+      <div className={`relative mx-auto max-w-4xl px-5 pt-24 ${showControls ? "pb-40" : "pb-24"}`}>
         {success && showFlourish && (
           <div className="pointer-events-none absolute inset-x-0 top-16 z-20 h-72">
             <CompletionFlourish />
@@ -125,7 +175,29 @@ export function StatusView({ jobId }: { jobId: string }) {
               </section>
             )}
 
-            {!terminal && (
+            <AnimatePresence initial={false}>
+              {held && supported && (
+                <motion.div
+                  key="hold"
+                  initial={{ opacity: 0, y: 12, filter: "blur(4px)" }}
+                  animate={{ opacity: 1, y: 0, filter: "blur(0px)", transition: ENTER }}
+                  exit={{ opacity: 0, y: -12, filter: "blur(4px)", transition: EXIT }}
+                  className="mb-6"
+                >
+                  <PausePanel
+                    phase={phase as "pausing" | "paused"}
+                    checkpoint={checkpoint}
+                    live={live}
+                    controls={controls}
+                    order={order}
+                    breakable={breakable}
+                    reduced={reduced}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {!finished && (
               <section className="mb-10">
                 <ProductionLine
                   jobId={jobId}
@@ -134,10 +206,15 @@ export function StatusView({ jobId }: { jobId: string }) {
                   status={s.status}
                   job={s.job}
                   live={live}
+                  trackControls={trackControls}
+                  pausedNote={pausedNote}
                 />
                 <p className="mx-auto mt-3 max-w-xl text-center text-xs text-muted">
-                  Takes a few minutes. You can leave and come back with your job ID
-                  within the hour.
+                  {phase === "paused"
+                    ? "Paused films still expire on the countdown above. Resume before then and everything finished is reused."
+                    : showControls
+                      ? "Takes a few minutes. Pause any time with P; finished work is never paid for twice."
+                      : "Takes a few minutes. You can leave and come back with your job ID."}
                 </p>
               </section>
             )}
@@ -149,11 +226,23 @@ export function StatusView({ jobId }: { jobId: string }) {
               stages={s.stages}
               logsByStage={s.logsByStage}
               currentStage={s.currentStage}
-              order={stageOrderOf(s.job)}
+              order={order}
+              breakpoints={showControls ? controls.breakpoints : undefined}
             />
           </>
         )}
       </div>
+      {showControls && (phase === "running" || held) && (
+        <RunControlDock
+          phase={phase as "running" | "pausing" | "paused"}
+          checkpoint={checkpoint}
+          controls={controls}
+          stages={s.stages}
+          currentStage={s.currentStage}
+          order={order}
+          breakable={breakable}
+        />
+      )}
     </main>
   );
 }

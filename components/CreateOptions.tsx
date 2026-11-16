@@ -79,7 +79,7 @@ export function CreateOptions({
           disabled={disabled}
           options={[
             { value: "en", label: "English" },
-            { value: "ta", label: <span className="font-tamil">தமிழ்</span>, hint: "Tamil: narration, dialogue, captions and post copy" },
+            { value: "ta", label: "Tamil", hint: "The film is in Tamil (speech, captions, post copy); the app stays in English" },
           ]}
         />
         {estimate != null && (

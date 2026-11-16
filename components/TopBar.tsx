@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AccountMenu } from "@/components/account/AccountMenu";
 import { BudgetMeter } from "@/components/BudgetMeter";
 
 type Tab = "create" | "retrieve" | "usage";
@@ -16,10 +17,10 @@ export function TopBar({ active }: { active?: Tab }) {
         <Link
           href="/"
           className="group flex items-center gap-2 font-display text-lg font-semibold tracking-tight"
-          aria-label="Storyboard Agent home"
+          aria-label="Creator Agent home"
         >
           <span className="inline-block h-5 w-5 rounded-full bg-accent" />
-          <span className="text-gradient">storyboard</span>
+          <span className="text-gradient">creator agent</span>
         </Link>
         <div className="flex items-center gap-2">
           <nav className="flex items-center gap-1 rounded-full border border-line bg-surface/40 p-1 text-sm backdrop-blur-md">
@@ -37,6 +38,7 @@ export function TopBar({ active }: { active?: Tab }) {
             ))}
           </nav>
           <BudgetMeter />
+          <AccountMenu />
         </div>
       </div>
     </header>

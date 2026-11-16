@@ -43,13 +43,13 @@ export function PublishPanel({
         <h3 className="font-display text-xl font-semibold text-ink">Ready to post</h3>
         <div className="flex gap-2">
           {videoUrl && (
-            <a href={api.asset(videoUrl)} download={`${title || "storyboard"}.mp4`}
+            <a href={api.asset(videoUrl)} download={`${title || "creator-agent-film"}.mp4`}
                className="press inline-flex min-h-9 items-center gap-1.5 rounded-full bg-accent px-4 text-sm font-semibold text-midnight hover:bg-accent-hover">
               <Download className="h-4 w-4" aria-hidden="true" /> Video
             </a>
           )}
           {coverUrl && (
-            <a href={api.asset(coverUrl)} download={`${title || "storyboard"}-cover`}
+            <a href={api.asset(coverUrl)} download={`${title || "creator-agent-film"}-cover`}
                className="press inline-flex min-h-9 items-center gap-1.5 rounded-full bg-surface-2 px-4 text-sm text-ink hover:bg-surface">
               <Download className="h-4 w-4" aria-hidden="true" /> Cover
             </a>

@@ -1,7 +1,11 @@
-// Typed client over the storyboard_agent FastAPI backend.
+// Typed client over the Creator Agent API (FastAPI).
 
 import type {
   BudgetStatus,
+  JobListItem,
+  KeyCheck,
+  Me,
+  Checkpoint,
   JobCreatedResponse,
   Language,
   PublishKit,
@@ -14,6 +18,8 @@ import type {
   StoryboardContent,
 } from "./types";
 import type { LiveAssets } from "./live";
+import { getGeminiKey } from "./geminiKey";
+import { getApiToken, withMediaToken } from "./session";
 
 export const API_BASE = (
   process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000"
@@ -23,28 +29,47 @@ export class ApiError extends Error {
   constructor(
     public status: number,
     message: string,
+    public code?: string,
   ) {
     super(message);
     this.name = "ApiError";
   }
 }
 
-async function req<T>(path: string, init?: RequestInit): Promise<T> {
-  let res: Response;
+/** Adds the sign-in token, and the tester's Gemini key when ``withKey`` (create/resume/check). */
+async function authed(init?: RequestInit, withKey = false): Promise<RequestInit> {
+  const headers = new Headers(init?.headers);
+  const token = await getApiToken();
+  if (token) headers.set("authorization", `Bearer ${token}`);
+  const key = withKey ? getGeminiKey() : null;
+  if (key) headers.set("x-gemini-key", key);
+  return { ...init, headers };
+}
+
+async function send(path: string, init?: RequestInit, withKey = false): Promise<Response> {
   try {
-    res = await fetch(`${API_BASE}${path}`, init);
+    return await fetch(`${API_BASE}${path}`, await authed(init, withKey));
   } catch {
     throw new ApiError(0, "Can't reach the server. Is the backend running?");
   }
+}
+
+async function req<T>(path: string, init?: RequestInit, withKey = false): Promise<T> {
+  const res = await send(path, init, withKey);
   if (!res.ok) {
     let detail: string = res.statusText;
+    let code: string | undefined;
     try {
       const body = await res.json();
       if (body && typeof body.detail === "string") detail = body.detail;
+      else if (body?.detail && typeof body.detail.message === "string") {
+        detail = body.detail.message;
+        code = body.detail.code;
+      }
     } catch {
       // non-JSON error body; keep statusText
     }
-    throw new ApiError(res.status, detail);
+    throw new ApiError(res.status, detail, code);
   }
   return (await res.json()) as T;
 }
@@ -57,17 +82,26 @@ export const api = {
     style?: StoryStyle,
     language?: Language,
   ) =>
-    req<JobCreatedResponse>("/storyboard", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        prompt,
-        duration,
-        style,
-        language,
-        turnstile_token: turnstileToken ?? null,
-      }),
-    }),
+    req<JobCreatedResponse>(
+      "/storyboard",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          prompt,
+          duration,
+          style,
+          language,
+          turnstile_token: turnstileToken ?? null,
+        }),
+      },
+      true,
+    ),
+
+  me: () => req<Me>("/me"),
+  checkKey: (key: string) =>
+    req<KeyCheck>("/keys/check", { method: "POST", headers: { "x-gemini-key": key } }),
+  listJobs: () => req<JobListItem[]>("/storyboard"),
 
   getPublishKit: (id: string) => req<PublishKit>(`/storyboard/${id}/publish`),
   getBudget: () => req<BudgetStatus>("/budget"),
@@ -97,17 +131,37 @@ export const api = {
 
   // Returns the raw Response so callers can branch on 202 / 409 / 404 / 410.
   resumeJob: (id: string, opts?: { allowStills?: boolean }) =>
-    fetch(`${API_BASE}/storyboard/${id}/resume`, {
-      method: "POST",
-      ...(opts?.allowStills
-        ? { headers: { "content-type": "application/json" }, body: JSON.stringify({ allow_stills: true }) }
-        : {}),
+    send(
+      `/storyboard/${id}/resume`,
+      {
+        method: "POST",
+        ...(opts?.allowStills
+          ? { headers: { "content-type": "application/json" }, body: JSON.stringify({ allow_stills: true }) }
+          : {}),
+      },
+      true,
+    ),
+
+  videoUrl: (id: string) => withMediaToken(`${API_BASE}/storyboard/${id}/video`),
+  eventsUrl: (id: string) => withMediaToken(`${API_BASE}/storyboard/${id}/events`),
+
+  // Resolve a relative artifact URL (e.g. /storyboard/x/artifacts/y) to absolute, signed for media.
+  asset: (relativeUrl: string) =>
+    relativeUrl.startsWith("http") ? relativeUrl : withMediaToken(`${API_BASE}${relativeUrl}`),
+
+  // --- Run controls -------------------------------------------------------- //
+  /** Stop starting paid work; in-flight units finish, then the job parks. */
+  pauseJob: (id: string) =>
+    req<{ job_id: string; status: string }>(`/storyboard/${id}/pause`, { method: "POST" }),
+
+  /** Replace the stages the run pauses BEFORE. */
+  setBreakpoints: (id: string, stages: string[]) =>
+    req<{ job_id: string; breakpoints: string[] }>(`/storyboard/${id}/breakpoints`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ stages }),
     }),
 
-  videoUrl: (id: string) => `${API_BASE}/storyboard/${id}/video`,
-  eventsUrl: (id: string) => `${API_BASE}/storyboard/${id}/events`,
-
-  // Resolve a relative artifact URL (e.g. /storyboard/x/artifacts/y) to absolute.
-  asset: (relativeUrl: string) =>
-    relativeUrl.startsWith("http") ? relativeUrl : `${API_BASE}${relativeUrl}`,
+  /** Per-unit progress + the cost to finish. 404 on servers without run controls. */
+  getCheckpoint: (id: string) => req<Checkpoint>(`/storyboard/${id}/checkpoint`),
 };

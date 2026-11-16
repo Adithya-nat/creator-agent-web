@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
+import { useAccount } from "@/components/account/AccountProvider";
 import { CreateOptions } from "@/components/CreateOptions";
 import { PromptBar } from "@/components/PromptBar";
 import { RecentJobs } from "@/components/RecentJobs";
@@ -22,6 +23,8 @@ const HeroBackdrop = dynamic(
 export default function CreatePage() {
   const router = useRouter();
   const { add } = useRecentJobs();
+  const { needsKey, hasKey, openKeyDialog } = useAccount();
+  const missingKey = needsKey && !hasKey;
   const [prompt, setPrompt] = useState("");
   const [duration, setDuration] = useState<Duration>(30);
   const [style, setStyle] = useState<StoryStyle>("dialogue");
@@ -39,6 +42,10 @@ export default function CreatePage() {
   const onToken = useCallback((t: string | null) => setToken(t), []);
 
   const handleGenerate = useCallback(async () => {
+    if (missingKey) {
+      openKeyDialog();
+      return;
+    }
     const p = prompt.trim();
     if (p.length < 3) {
       setError("Add a few more words to your idea (at least 3 characters).");
@@ -51,10 +58,11 @@ export default function CreatePage() {
       add(job_id, p);
       router.push(`/status/${job_id}`);
     } catch (e) {
+      if (e instanceof ApiError && e.code === "key_required") openKeyDialog();
       const msg =
         e instanceof ApiError
           ? e.status === 429
-            ? "You're generating a lot right now — give it a minute and try again."
+            ? e.message || "You're generating a lot right now — give it a minute and try again."
             : e.status === 403
               ? "Verification failed. Complete the check and try again."
               : e.status === 402
@@ -64,7 +72,7 @@ export default function CreatePage() {
       setError(msg);
       setSubmitting(false);
     }
-  }, [prompt, duration, token, style, language, add, router]);
+  }, [prompt, duration, token, style, language, add, router, missingKey, openKeyDialog]);
 
   return (
     <main className="relative min-h-screen overflow-hidden">
@@ -108,6 +116,8 @@ export default function CreatePage() {
                 <>
                   <Spinner /> Starting your film
                 </>
+              ) : missingKey ? (
+                "Add your Gemini key"
               ) : (
                 "Make the film"
               )}

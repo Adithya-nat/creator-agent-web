@@ -5,6 +5,7 @@ export interface LiveBeat {
   order: number;
   text: string;
   speaker: string | null;
+  text_en?: string | null; // English rendering of a Tamil beat (UI only)
 }
 
 export interface LiveMedia {
@@ -18,6 +19,8 @@ export interface LiveAssets {
   version: string;
   title: string | null;
   logline: string | null;
+  title_en?: string | null;
+  logline_en?: string | null;
   beats: LiveBeat[];
   scores: Record<string, number>;
   score_overall: number | null;

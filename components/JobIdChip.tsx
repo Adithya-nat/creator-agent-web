@@ -47,9 +47,9 @@ export function JobIdChip({
                 ? "text-state-warn"
                 : "text-muted"
           }`}
-          title="Films are kept for 24 hours after they start"
+          title="Everything this film made is deleted 24 hours after it starts"
         >
-          {expired ? "expired" : `expires in ${label}`}
+          {expired ? "deleted" : `deleted in ${label}`}
         </span>
       )}
     </div>

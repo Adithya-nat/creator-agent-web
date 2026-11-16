@@ -1,96 +1,73 @@
-# Storyboard Agent — Frontend
+# Creator Agent: web app
 
-The web app for **storyboard_agent**: write one line, pick a story style (Dialogue, Mixed, Narrated)
-and language (English or Tamil), watch each stage live, then download the film, cover and post copy.
-A Usage page tracks AI spend per run against your monthly budget. Setup for all repos:
-[storyboard_agent/SETUP.md](../storyboard_agent/SETUP.md). Built with Next.js 16, React 19, Tailwind 4,
-React Three Fiber 9 and Recharts.
+The studio for [Creator Agent](https://github.com/Adithya-nat/creator-agent), an open-source AI
+film studio. Write one line, pick a story style (Dialogue, Mixed, Narrated) and a language
+(English or Tamil), watch every stage live, then download the film, cover and post copy.
 
-## Surfaces
+- Homepage: <https://adithya-nat.github.io/creator-agent/>
+- Run everything locally: [creator-agent/SETUP.md](https://github.com/Adithya-nat/creator-agent/blob/main/SETUP.md)
+- Host it for others: [creator-agent/DEPLOY.md](https://github.com/Adithya-nat/creator-agent/blob/main/DEPLOY.md)
 
-- `/` — Create. A three.js hero, a prompt bar, a 30s/60s toggle, and Generate.
-- `/status/[jobId]` — Live status **and** result on one URL. While running: a 3D
-  progress visualization plus a CI-style stage list (`script_writer → designer →
-  image_gen → motion → assembler`, when enabled) where each stage expands to its
-  live logs. When done: the video player, a frame-by-frame storyboard, and a download.
-  Job ID + a 1-hour expiry
-  countdown are always shown; the URL is shareable and survives a refresh.
-- `/retrieve` — Paste a saved job ID to reopen it, plus a list of recent jobs kept in
-  this browser (no account needed).
+Built with Next.js 16, React 19, Tailwind 4, React Three Fiber 9, Recharts and Better Auth.
 
-## Requirements
+## Pages
 
-- Node 18+ (built/tested on Node 24)
-- The `storyboard_agent` backend running and reachable
+- `/login`: sign in with GitHub or Google (hosted mode only).
+- `/`: create a film. In hosted mode you add your own Gemini key first (top bar, **Add Gemini key**).
+- `/status/[jobId]`: the live production line while a film renders, then the player, scenes,
+  cast, publish kit and a countdown to the 24-hour deletion.
+- `/retrieve`: your films from the last 24 hours (from your account when signed in, from this
+  browser otherwise).
+- `/usage`: what your films cost, per run and per model.
+
+## Two modes
+
+| | Local (default) | Hosted beta |
+| --- | --- | --- |
+| `NEXT_PUBLIC_AUTH_ENABLED` | `false` | `true` |
+| Sign-in | none | Better Auth (GitHub, Google), sessions in Postgres schema `creator_auth` |
+| API calls | plain | `Authorization: Bearer <15-min JWT>`; the API verifies it with this app's `/api/auth/jwks` |
+| Gemini key | the API's `.env` | the user's own, kept in this browser and sent only on create/resume |
+
+The user's key is stored in `sessionStorage`, or in `localStorage` when they tick **Remember on
+this device** (`lib/geminiKey.ts`). Video, images and the live event stream use a signed `?t=`
+link from `GET /me`, because `<video>` and `EventSource` can't send headers (`lib/session.ts`).
 
 ## Setup
 
 ```bash
-cp .env.example .env.local
-# set NEXT_PUBLIC_API_BASE to your backend (default http://localhost:8000)
-
+cp .env.example .env.local     # NEXT_PUBLIC_API_BASE defaults to http://localhost:8000
 npm install
-npm run dev          # http://localhost:3000
+npm run dev                    # http://localhost:3000
 ```
 
-Run the backend in mock mode (no API keys, deterministic placeholder frames) for a
-full local end-to-end. From a checkout of the `storyboard_agent` repo:
-
-```bash
-docker compose up -d && alembic upgrade head
-uvicorn app.main:app --reload    # serves on :8000
-```
-
-> The backend must allow this origin via CORS. It defaults to `http://localhost:3000`;
-> set `CORS_ORIGINS` on the backend for any other origin (see its `.env.example`).
-
-## Environment
-
-| Var | Purpose |
-|---|---|
-| `NEXT_PUBLIC_API_BASE` | Backend base URL, no trailing slash. Default `http://localhost:8000`. |
-| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Cloudflare Turnstile site key. Blank → widget hidden (the backend also skips verification unless `TURNSTILE_ENABLED=true`). |
+Hosted mode locally (no OAuth app needed): set `NEXT_PUBLIC_AUTH_ENABLED=true`,
+`DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL=http://localhost:3000` and
+`AUTH_EMAIL_PASSWORD=true`, run `npm run auth:migrate` once, and start the API with
+`AUTH_MODE=jwt AUTH_JWKS_URL=http://localhost:3000/api/auth/jwks AUTH_ISSUER=http://localhost:3000`.
+Then sign up with `POST /api/auth/sign-up/email`.
 
 ## Scripts
 
 ```bash
-npm run dev        # dev server
-npm run build      # production build
-npm run start      # serve the build
-npm run typecheck  # tsc --noEmit
-npm run lint       # next lint
+npm run dev           # dev server
+npm run build         # production build (standalone output, used by the Dockerfile)
+npm run typecheck     # tsc --noEmit
+npm run lint          # eslint
+npm test              # vitest
+npm run auth:migrate  # create/upgrade the sign-in tables (needs DATABASE_URL)
 ```
 
-## Deploy (Vercel)
+## Deploy
 
-1. Import the repo; framework auto-detects as Next.js.
-2. Set env vars: `NEXT_PUBLIC_API_BASE` = your deployed backend URL, and
-   `NEXT_PUBLIC_TURNSTILE_SITE_KEY` if using Turnstile.
-3. On the **backend**, add the Vercel domain to `CORS_ORIGINS`, and (for production)
-   set `TURNSTILE_ENABLED=true` + `TURNSTILE_SECRET_KEY`, and keep `RATE_LIMIT_ENABLED=true`.
+See [DEPLOY.md](https://github.com/Adithya-nat/creator-agent/blob/main/DEPLOY.md). The
+`Dockerfile` here builds the standalone server; `NEXT_PUBLIC_*` values are build arguments.
 
-The backend is a stateful Python service (Postgres + ffmpeg), so host it on a
-container/VM platform (Render, Fly, Railway, a VM), not on Vercel.
+## How it talks to the API
 
-## Performance & accessibility
-
-- The three.js bundle is code-split (`dynamic(..., { ssr: false })`), so the initial
-  JS stays lean. Canvases cap device pixel ratio and fall back to a CSS gradient when
-  WebGL is unavailable.
-- `prefers-reduced-motion` swaps 3D animation for a static frame, disables parallax,
-  and neutralizes CSS transitions.
-- Keyboard-navigable, ARIA accordion semantics on stages, `aria-live` status updates,
-  and AA-contrast cinematic palette.
-
-## How it talks to the backend
-
-- `lib/api.ts` — typed client; `lib/types.ts` mirrors the FastAPI schemas.
-- `hooks/useJobStream.ts` — subscribes to `GET /storyboard/{id}/events` (SSE) with a
-  `Last-Event-ID` cursor, and **falls back to polling** `GET /{id}` + `/logs?after=`
-  if SSE is unavailable (e.g. `ENABLE_LOG_STREAMING=false` or a buffering proxy).
-- Result media is fetched via `GET /storyboard/{id}/storyboard` (frames + captions)
-  and streamed through `GET /storyboard/{id}/artifacts/{artifactId}` and `/video`.
-- New backends may include optional motion coverage and per-scene renderer/model
-  metadata. The result view summarizes generative versus fallback coverage and the
-  filmstrip shows small renderer/fallback badges. Old backend payloads render
-  exactly as before, including hover playback.
+- `lib/api.ts`: typed client. Adds the sign-in token to every call and the Gemini key to
+  create, resume and key-check calls. `lib/types.ts` mirrors the FastAPI schemas.
+- `hooks/useJobStream.ts`: subscribes to `GET /storyboard/{id}/events` (SSE) and falls back to
+  polling if SSE is unavailable.
+- `components/account/`: the account gate (`/me`), the "on the list" screen, the key dialog and
+  the account menu.

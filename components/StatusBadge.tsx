@@ -19,6 +19,8 @@ const MAP: Record<JobStatus, { label: string; text: string; dot: string }> = {
     text: "text-state-bad",
     dot: "bg-state-bad",
   },
+  pausing: { label: "Pausing", text: "text-state-warn", dot: "bg-state-warn animate-pulseGlow" },
+  paused: { label: "Paused", text: "text-state-warn", dot: "bg-state-warn" },
 };
 
 export function StatusBadge({ status }: { status: JobStatus | null }) {

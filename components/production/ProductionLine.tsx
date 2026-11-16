@@ -6,7 +6,8 @@ import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { deriveStageSignals } from "@/lib/stageSignals";
 import type { LiveAssets } from "@/lib/live";
 import type { JobStatus, JobStatusResponse, StageRef } from "@/lib/types";
-import { LineTrack } from "./LineTrack";
+import { Pause } from "lucide-react";
+import { LineTrack, type TrackControls } from "./LineTrack";
 import { usePalette } from "./media";
 import { ENTER, EXIT, rise } from "./motion";
 import { buildShots, resolveLive, shotCount, slate, standIns } from "./shots";
@@ -44,6 +45,8 @@ export function ProductionLine({
   status,
   job,
   live: rawLive,
+  trackControls,
+  pausedNote,
 }: {
   jobId: string;
   stages: StageRef[];
@@ -51,8 +54,17 @@ export function ProductionLine({
   status: JobStatus | null;
   job: JobStatusResponse | null;
   live: LiveAssets | null;
+  /** Breakpoint flags on the rail (absent: the rail is display-only). */
+  trackControls?: TrackControls;
+  /** Shown on the frozen monitor when paused, e.g. "Resumes at scene 3". */
+  pausedNote?: string;
 }) {
-  const reduced = usePrefersReducedMotion();
+  const prefersReduced = usePrefersReducedMotion();
+  // Paused or pausing: the line freezes in place (no continuous motion), so the
+  // still picture itself says "on hold". Pausing still finishes paid work.
+  const paused = status === "paused";
+  const frozen = paused || status === "pausing";
+  const reduced = prefersReduced || paused;
   const live = useMemo(() => resolveLive(rawLive), [rawLive]);
   const signals = useMemo(
     () => deriveStageSignals({ stages, currentStage, status, job }),
@@ -78,11 +90,15 @@ export function ProductionLine({
   const queued = status == null || status === "queued";
   const action = queued
     ? "In the queue, the crew is getting ready"
-    : station.action({ live, stage, frames });
+    : paused
+      ? `On hold. ${pausedNote ?? "Resume whenever you're ready."}`
+      : status === "pausing"
+        ? "Wrapping up what's already paid for, then holding"
+        : station.action({ live, stage, frames });
 
   return (
-    <MotionConfig reducedMotion="user">
-      <section aria-label="Production line" className="glass p-3">
+    <MotionConfig reducedMotion={paused ? "always" : "user"}>
+      <section aria-label="Production line" className="glass relative p-3">
         <header className="flex items-end justify-between gap-4 px-2 pt-1">
           <div className="min-w-0">
             <p className="font-mono text-[11px] tracking-[0.18em] text-muted">
@@ -113,7 +129,9 @@ export function ProductionLine({
 
         <div
           aria-hidden
-          className="relative mt-3 h-[300px] overflow-hidden rounded-[7px] bg-[#10162a] sm:h-[340px]"
+          className={`relative mt-3 h-[300px] overflow-hidden rounded-[7px] bg-[#10162a] transition-[filter] duration-500 sm:h-[340px] ${
+            paused ? "[filter:saturate(0.3)_brightness(0.72)]" : ""
+          }`}
           style={{
             backgroundImage:
               "radial-gradient(120% 80% at 50% -10%, rgba(242,181,68,0.09), transparent 60%), radial-gradient(90% 90% at 50% 50%, transparent 55%, rgba(0,0,0,0.45))",
@@ -145,11 +163,47 @@ export function ProductionLine({
             </AnimatePresence>
           </LayoutGroup>
         </div>
+        <AnimatePresence>
+          {frozen && <HoldSlate key="hold" paused={paused} note={pausedNote} />}
+        </AnimatePresence>
 
         <div className="mt-3">
-          <LineTrack order={order} signals={signals.stages} active={active} reduced={reduced} />
+          <LineTrack
+            order={order}
+            signals={signals.stages}
+            active={active}
+            reduced={reduced}
+            frozen={frozen}
+            controls={trackControls}
+          />
         </div>
       </section>
     </MotionConfig>
+  );
+}
+
+/** The slate laid over a frozen monitor: "PAUSING" while paid units finish,
+ *  then "PAUSED" with where the film resumes. Sits outside the filtered monitor
+ *  so it keeps full colour. */
+function HoldSlate({ paused, note }: { paused: boolean; note?: string }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, filter: "blur(4px)", y: 12 }}
+      animate={{ opacity: 1, filter: "blur(0px)", y: 0, transition: ENTER }}
+      exit={{ opacity: 0, filter: "blur(4px)", y: -12, transition: EXIT }}
+      className="pointer-events-none absolute left-1/2 top-[200px] z-10 -translate-x-1/2 sm:top-[150px]"
+    >
+      <div className="glass flex items-center gap-3 rounded-[16px] px-4 py-3 backdrop-blur-xl">
+        <span className="grid h-9 w-9 place-items-center rounded-full bg-state-warn text-midnight">
+          <Pause className="h-4 w-4" strokeWidth={2.5} fill="currentColor" aria-hidden />
+        </span>
+        <div>
+          <p className="font-display text-xl font-extrabold uppercase leading-5 tracking-wide text-ink">
+            {paused ? "Paused" : "Pausing"}
+          </p>
+          <p className="text-xs text-muted">{paused ? (note ?? "Resume whenever you're ready") : "Finishing what's paid for"}</p>
+        </div>
+      </div>
+    </motion.div>
   );
 }

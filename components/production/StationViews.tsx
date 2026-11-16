@@ -754,12 +754,14 @@ function Vfx({ shots, live, stage, reduced, tint }: ViewProps) {
   const filmed = stage?.progress_current ?? live?.clips.length ?? 0;
   const total = stage?.progress_total ?? shots.length;
   const row = shots.slice(0, 5);
+  const held = stage?.status === "paused"; // paused: the next scene waits, nothing rolls
   return (
     <SetPiece className="flex-col">
       <Counter n={filmed} of={total} what="Scenes filmed" />
       <div className="flex gap-2.5">
         {row.map((s, i) => {
-          const rolling = i === filmed;
+          const next = i === filmed;
+          const rolling = next && !held;
           const ok = !!s.clipUrl || i < filmed;
           return (
             <div key={s.order} className={i >= 3 ? "hidden sm:block" : ""}>
@@ -777,10 +779,10 @@ function Vfx({ shots, live, stage, reduced, tint }: ViewProps) {
                 <SlateTag n={s.order} />
                 <span
                   className={`${label} absolute bottom-1.5 left-1.5 rounded-[3px] bg-midnight/80 px-1 py-px ${
-                    ok ? "text-state-ok" : rolling ? "text-state-bad" : "text-muted"
+                    ok ? "text-state-ok" : rolling ? "text-state-bad" : next ? "text-state-warn" : "text-muted"
                   }`}
                 >
-                  {ok ? "Take ok" : rolling ? "● Rolling" : "Standby"}
+                  {ok ? "Take ok" : rolling ? "● Rolling" : next ? "❚❚ Held" : "Standby"}
                 </span>
                 {rolling && <Clapper reduced={reduced} />}
               </ShotCard>

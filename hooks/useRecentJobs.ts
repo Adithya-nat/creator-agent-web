@@ -8,14 +8,15 @@ export interface RecentJob {
   createdAt: number; // epoch ms (client clock)
 }
 
-const KEY = "storyboard.recentJobs";
+const KEY = "creator.recentJobs";
+const OLD_KEY = "storyboard.recentJobs"; // pre-rebrand
 const MAX = 12;
 const TTL_MS = 24 * 60 * 60 * 1000; // mirror the backend's 24-hour retention (JOB_TTL_SECONDS)
 
 function read(): RecentJob[] {
   if (typeof window === "undefined") return [];
   try {
-    const raw = window.localStorage.getItem(KEY);
+    const raw = window.localStorage.getItem(KEY) ?? window.localStorage.getItem(OLD_KEY);
     if (!raw) return [];
     const list = JSON.parse(raw) as RecentJob[];
     const now = Date.now();
@@ -35,17 +36,17 @@ function write(list: RecentJob[]) {
 
 // localStorage-backed store; listeners re-read on writes from this tab or others.
 const listeners = new Set<() => void>();
-let cache: { raw: string | null; jobs: RecentJob[] } = { raw: null, jobs: [] };
+let cache: { raw: string | null; jobs: RecentJob[] } | null = null;
 const EMPTY: RecentJob[] = [];
 
 function snapshot(): RecentJob[] {
   let raw: string | null = null;
   try {
-    raw = window.localStorage.getItem(KEY);
+    raw = window.localStorage.getItem(KEY) ?? window.localStorage.getItem(OLD_KEY);
   } catch {
     return EMPTY;
   }
-  if (raw !== cache.raw) cache = { raw, jobs: read() };
+  if (!cache || raw !== cache.raw) cache = { raw, jobs: read() };
   return cache.jobs;
 }
 
