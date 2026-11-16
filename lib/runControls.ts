@@ -145,3 +145,104 @@ export function costSplit(cp: Checkpoint | null): CostSplit {
   const total = kept + toFinish;
   return { kept, toFinish, keptShare: total > 0 ? kept / total : 0 };
 }
+
+// --------------------------------------------------------------------------- //
+// Breakpoint sync: optimistic local edits, saved to the server without races.
+// --------------------------------------------------------------------------- //
+export interface BreakpointView {
+  local: string[];
+  /** Set when a save failed (the list was rolled back to what the server has). */
+  error?: unknown;
+}
+
+/** Keeps the user's checkpoint picks in step with the server:
+ *  - edits apply instantly and save after a short debounce, one request at a time;
+ *  - a save's response only lands if no newer edit happened meanwhile (revisions);
+ *  - a failed save rolls back to what the server last acknowledged and reports it;
+ *  - a server list is adopted only when nothing is unsaved AND it was read after the
+ *    last acknowledged save, so a stale checkpoint read can't undo a fresh edit. */
+export class BreakpointSync {
+  local: string[];
+  private saved: string[];
+  private rev = 0;
+  private ackedRev = 0;
+  private ackedAt = 0;
+  private inFlight = false;
+  private timer: ReturnType<typeof setTimeout> | null = null;
+
+  constructor(
+    initial: string[],
+    private save: (stages: string[]) => Promise<string[]>,
+    private notify: (v: BreakpointView) => void,
+    private delayMs = 450,
+    private now: () => number = Date.now,
+  ) {
+    this.local = initial;
+    this.saved = initial;
+  }
+
+  get dirty(): boolean {
+    return this.inFlight || this.rev !== this.ackedRev;
+  }
+
+  edit(stages: string[]): void {
+    this.local = stages;
+    this.rev += 1;
+    this.notify({ local: stages });
+    this.schedule(this.delayMs);
+  }
+
+  /** A server snapshot of the list, read at ``observedAt`` (ms; 0 = unknown time). */
+  observe(server: string[], observedAt: number): void {
+    if (this.dirty) return;
+    if (this.ackedAt && observedAt <= this.ackedAt) return; // predates our last save
+    this.saved = server;
+    if (!sameList(server, this.local)) {
+      this.local = server;
+      this.notify({ local: server });
+    }
+  }
+
+  dispose(): void {
+    if (this.timer) clearTimeout(this.timer);
+    this.timer = null;
+  }
+
+  private schedule(ms: number): void {
+    if (this.timer) clearTimeout(this.timer);
+    this.timer = setTimeout(() => {
+      this.timer = null;
+      void this.flush();
+    }, ms);
+  }
+
+  private async flush(): Promise<void> {
+    if (this.inFlight) return; // the running save re-schedules when it sees a newer rev
+    this.inFlight = true;
+    const rev = this.rev;
+    const stages = this.local;
+    try {
+      const ok = await this.save(stages);
+      this.saved = ok;
+      this.ackedAt = this.now();
+      if (rev === this.rev) {
+        this.ackedRev = rev;
+        this.local = ok;
+        this.notify({ local: ok });
+      }
+    } catch (error) {
+      if (rev === this.rev) {
+        this.ackedRev = rev;
+        this.local = this.saved;
+        this.notify({ local: this.saved, error });
+      } else {
+        this.notify({ local: this.local, error });
+      }
+    } finally {
+      this.inFlight = false;
+      if (rev !== this.rev) this.schedule(0); // newer edits arrived mid-save: save them now
+    }
+  }
+}
+
+const sameList = (a: string[], b: string[]) => a.length === b.length && a.every((x, i) => x === b[i]);

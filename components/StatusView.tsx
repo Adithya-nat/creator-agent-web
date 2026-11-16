@@ -77,13 +77,21 @@ function StatusViewInner({ jobId }: { jobId: string }) {
 
   // Run controls: checkpoint (per-unit state + cost), actions, breakpoints.
   const [cpNonce, setCpNonce] = useState(0);
-  const { checkpoint, supported } = useCheckpoint(jobId, status, cpNonce);
+  const { checkpoint, observedAt, supported } = useCheckpoint(jobId, status, cpNonce);
   const { restart } = s;
   const onResumed = useCallback(() => {
     restart();
     setCpNonce((n) => n + 1);
   }, [restart]);
-  const controls = useRunControls(jobId, status, checkpoint?.breakpoints ?? s.job?.breakpoints, onResumed);
+  // The checkpoint is the fresher source (and carries its read time); the job snapshot
+  // covers servers or moments without one (read time unknown = 0).
+  const controls = useRunControls(
+    jobId,
+    status,
+    checkpoint?.breakpoints ?? s.job?.breakpoints,
+    checkpoint ? observedAt : 0,
+    onResumed,
+  );
   const order = stageOrderOf(s.job);
   const breakable = breakableStages(order, s.stages);
   const showControls = supported && (phase === "running" || held);

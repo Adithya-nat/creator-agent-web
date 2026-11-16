@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
+  BreakpointSync,
   breakableStages,
   controlPhase,
   costSplit,
@@ -117,5 +118,66 @@ describe("costSplit", () => {
   it("splits kept vs to-finish", () => {
     expect(costSplit(cp())).toEqual({ kept: 3, toFinish: 1, keptShare: 0.75 });
     expect(costSplit(null).keptShare).toBe(0);
+  });
+});
+
+describe("BreakpointSync", () => {
+  const flush = async () => {
+    await vi.runAllTimersAsync();
+  };
+
+  it("never lets an earlier save overwrite a newer edit", async () => {
+    vi.useFakeTimers();
+    const calls: string[][] = [];
+    let release!: (v: string[]) => void;
+    const save = vi.fn((stages: string[]) => {
+      calls.push(stages);
+      return calls.length === 1 ? new Promise<string[]>((r) => (release = r)) : Promise.resolve(stages);
+    });
+    const sync = new BreakpointSync([], save, () => {}, 450);
+
+    sync.edit(["motion"]);
+    await vi.advanceTimersByTimeAsync(450); // Motion save goes out and hangs
+    sync.edit(["motion", "music"]); // edit while it's in flight
+    release(["motion"]); // the stale Motion response lands
+    await flush();
+    expect(sync.local).toEqual(["motion", "music"]);
+    sync.edit(["motion", "music", "captions"]);
+    await flush();
+    // One request at a time; Music is saved, never lost.
+    expect(calls).toEqual([["motion"], ["motion", "music"], ["motion", "music", "captions"]]);
+    expect(sync.local).toEqual(["motion", "music", "captions"]);
+    vi.useRealTimers();
+  });
+
+  it("ignores a checkpoint read that predates the last save", async () => {
+    vi.useFakeTimers();
+    let t = 1000;
+    const sync = new BreakpointSync([], async (s) => s, () => {}, 0, () => t);
+    sync.edit(["motion"]);
+    await flush(); // acked at t=1000
+    sync.observe([], 900); // GET started before the save: stale
+    expect(sync.local).toEqual(["motion"]);
+    t = 2000;
+    sync.observe([], 1500); // read after the save: the breakpoint fired and was consumed
+    expect(sync.local).toEqual([]);
+    vi.useRealTimers();
+  });
+
+  it("rolls back and reports when a save fails", async () => {
+    vi.useFakeTimers();
+    const views: { local: string[]; error?: unknown }[] = [];
+    const sync = new BreakpointSync(["music"], async () => Promise.reject(new Error("down")), (v) => views.push(v), 0);
+    sync.edit(["music", "motion"]);
+    await flush();
+    expect(sync.local).toEqual(["music"]);
+    expect(views.at(-1)?.error).toBeInstanceOf(Error);
+    vi.useRealTimers();
+  });
+
+  it("adopts the server list while nothing is unsaved", () => {
+    const sync = new BreakpointSync([], async (s) => s, () => {});
+    sync.observe(["edit"], 0);
+    expect(sync.local).toEqual(["edit"]);
   });
 });

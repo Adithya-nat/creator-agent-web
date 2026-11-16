@@ -95,8 +95,15 @@ export function Filmstrip({
                 </p>
               )}
               {s.narration && (
-                <p className="mt-1 line-clamp-4 whitespace-pre-line text-xs leading-snug text-muted">
-                  <Bilingual text={s.narration} en={s.narration_en} tamil={tamil} enClassName="text-[11px] text-muted/80" />
+                <p className="mt-1 whitespace-pre-line text-xs leading-snug text-muted">
+                  {/* Clamped separately, so a long original can't push its English out of view. */}
+                  <Bilingual
+                    text={s.narration}
+                    en={s.narration_en}
+                    tamil={tamil}
+                    className="line-clamp-3"
+                    enClassName="line-clamp-2 text-[11px] text-muted/80"
+                  />
                 </p>
               )}
             </button>

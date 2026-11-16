@@ -86,7 +86,8 @@ export function RunControlDock({
   });
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key.toLowerCase() !== "p" || e.metaKey || e.ctrlKey || e.altKey || isTyping(e.target)) return;
+      // e.repeat: holding P must not pause and then, on an auto-repeat, cancel the pause.
+      if (e.repeat || e.key.toLowerCase() !== "p" || e.metaKey || e.ctrlKey || e.altKey || isTyping(e.target)) return;
       e.preventDefault();
       void actRef.current();
     };
@@ -132,6 +133,23 @@ export function RunControlDock({
             >
               <BreakpointPicker order={order} breakable={breakable} value={controls.breakpoints} onChange={controls.setBreakpoints} />
             </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* While running there's no pause panel, so the dock shows failures itself
+            (e.g. a checkpoint that didn't save; the flag has been rolled back). */}
+        <AnimatePresence initial={false}>
+          {phase === "running" && controls.error && (
+            <motion.p
+              key="err"
+              role="alert"
+              initial={{ opacity: 0, y: 8, filter: "blur(4px)" }}
+              animate={{ opacity: 1, y: 0, filter: "blur(0px)", transition: ENTER }}
+              exit={{ opacity: 0, y: 8, filter: "blur(4px)", transition: EXIT }}
+              className="glass mb-2 rounded-[14px] px-4 py-2 text-sm text-state-bad"
+            >
+              {controls.error}
+            </motion.p>
           )}
         </AnimatePresence>
 

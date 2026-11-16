@@ -3,17 +3,20 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAccount } from "@/components/account/AccountProvider";
 import { api, ApiError } from "@/lib/api";
-import { controlPhase } from "@/lib/runControls";
+import { BreakpointSync, controlPhase } from "@/lib/runControls";
 import type { Checkpoint, JobStatus } from "@/lib/types";
 
 /** How often to refresh the checkpoint per phase: fast while a pause drains (the
  *  in-flight tiles tick over), slow while running, once when parked. */
 const POLL_MS: Record<string, number | null> = { pausing: 1200, running: 4000, paused: null };
+const RETRY_MS = 3000; // after a transient failure, in every phase (paused included)
 
 /** The job's checkpoint (per-unit state + cost to finish). Null until it lands, and
- *  null for good on a server without run controls (the UI then hides them). */
+ *  null for good on a server without run controls (the UI then hides them).
+ *  ``observedAt`` is when the request for the current checkpoint STARTED, so callers
+ *  can tell whether it could have seen a write they made at a given time. */
 export function useCheckpoint(jobId: string, status: JobStatus | null, nonce = 0) {
-  const [cp, setCp] = useState<Checkpoint | null>(null);
+  const [state, setState] = useState<{ cp: Checkpoint | null; observedAt: number }>({ cp: null, observedAt: 0 });
   const [supported, setSupported] = useState(true);
   const phase = controlPhase(status);
 
@@ -22,17 +25,18 @@ export function useCheckpoint(jobId: string, status: JobStatus | null, nonce = 0
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
     const tick = async () => {
+      const started = Date.now();
+      let every = POLL_MS[phase];
       try {
         const next = await api.getCheckpoint(jobId);
-        if (!cancelled) setCp(next);
+        if (!cancelled) setState({ cp: next, observedAt: started });
       } catch (e) {
         if (e instanceof ApiError && e.status === 404) {
           if (!cancelled) setSupported(false);
           return;
         }
-        // transient: try again on the next tick
+        every = RETRY_MS; // transient: retry even when parked (a paused read is otherwise one-shot)
       }
-      const every = POLL_MS[phase];
       if (!cancelled && every) timer = setTimeout(tick, every);
     };
     void tick();
@@ -42,7 +46,7 @@ export function useCheckpoint(jobId: string, status: JobStatus | null, nonce = 0
     };
   }, [jobId, phase, supported, nonce]);
 
-  return { checkpoint: cp, supported };
+  return { checkpoint: state.cp, observedAt: state.observedAt, supported };
 }
 
 export type ControlAction = "pause" | "resume" | "withdraw" | "finish" | null;
@@ -65,40 +69,45 @@ const MESSAGES: Record<number, string> = {
   410: "This film has expired and can't be controlled any more.",
 };
 
-/** Pause / resume / breakpoint actions for one job, with optimistic breakpoints
- *  (saved after a short debounce, so toggling several in a row is one request). */
+const message = (e: unknown) =>
+  e instanceof ApiError ? (MESSAGES[e.status] ?? e.message) : "Can't reach the server. Is the API running?";
+
+/** Pause / resume / breakpoint actions for one job. Breakpoints are optimistic and
+ *  saved without races by ``BreakpointSync`` (see lib/runControls.ts). */
 export function useRunControls(
   jobId: string,
   status: JobStatus | null,
   serverBreakpoints: string[] | undefined,
+  /** When the request that read ``serverBreakpoints`` started (ms; 0 = unknown). */
+  observedAt: number,
   onResumed: () => void,
 ): RunControls {
   const { needsKey, hasKey, openKeyDialog } = useAccount();
   const [busy, setBusy] = useState<ControlAction>(null);
   const [error, setError] = useState<string | null>(null);
   const [breakpoints, setLocal] = useState<string[]>(serverBreakpoints ?? []);
-  const [synced, setSynced] = useState(serverBreakpoints);
-  const [dirty, setDirty] = useState(false);
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sync = useRef<BreakpointSync | null>(null);
 
-  // Adopt the server's list when it changes (e.g. a breakpoint fired and was
-  // consumed), unless the user has unsaved toggles in flight.
-  if (serverBreakpoints !== synced) {
-    setSynced(serverBreakpoints);
-    if (!dirty && serverBreakpoints) setLocal(serverBreakpoints);
-  }
-
-  useEffect(() => () => {
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-  }, []);
-
-  const fail = (e: unknown) => {
-    setError(
-      e instanceof ApiError
-        ? (MESSAGES[e.status] ?? e.message)
-        : "Can't reach the server. Is the API running?",
+  useEffect(() => {
+    const s = new BreakpointSync(
+      [],
+      async (stages) => (await api.setBreakpoints(jobId, stages)).breakpoints,
+      (v) => {
+        setLocal(v.local);
+        if (v.error !== undefined) setError(`Couldn't save that checkpoint. ${message(v.error)}`);
+      },
     );
-  };
+    sync.current = s;
+    return () => s.dispose();
+  }, [jobId]);
+
+  // Adopt the server's list (e.g. a breakpoint fired and was consumed) unless there
+  // are unsaved edits, or the read predates our last acknowledged save.
+  useEffect(() => {
+    if (serverBreakpoints) sync.current?.observe(serverBreakpoints, observedAt);
+  }, [serverBreakpoints, observedAt]);
+
+  const fail = (e: unknown) => setError(message(e));
 
   const pause = useCallback(async () => {
     setBusy("pause");
@@ -153,24 +162,10 @@ export function useRunControls(
     [jobId, status, onResumed, needsKey, hasKey, openKeyDialog],
   );
 
-  const setBreakpoints = useCallback(
-    (stages: string[]) => {
-      setLocal(stages);
-      setDirty(true);
-      if (saveTimer.current) clearTimeout(saveTimer.current);
-      saveTimer.current = setTimeout(async () => {
-        try {
-          const { breakpoints: saved } = await api.setBreakpoints(jobId, stages);
-          setLocal(saved);
-        } catch (e) {
-          fail(e);
-        } finally {
-          setDirty(false);
-        }
-      }, 450);
-    },
-    [jobId],
-  );
+  const setBreakpoints = useCallback((stages: string[]) => {
+    setError(null);
+    sync.current?.edit(stages);
+  }, []);
 
   return { busy, error, pause, resume, breakpoints, setBreakpoints };
 }
