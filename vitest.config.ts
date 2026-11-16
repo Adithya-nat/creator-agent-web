@@ -10,7 +10,7 @@ export default defineConfig({
   plugins: [react()], // JSX/TSX transform for the R3F scene smoke tests
   test: {
     environment: "node", // pure util + headless R3F test-renderer — no DOM needed
-    include: ["lib/**/*.test.ts", "components/**/*.test.tsx"],
+    include: ["lib/**/*.test.ts", "components/**/*.test.ts", "components/**/*.test.tsx"],
   },
   resolve: {
     alias: { "@": root },

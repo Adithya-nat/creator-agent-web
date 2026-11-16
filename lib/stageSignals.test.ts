@@ -66,7 +66,7 @@ describe("deriveStageSignals", () => {
     const s = deriveStageSignals({ stages: [], currentStage: null, status: null, job: null });
     expect(s.overall).toBe("idle");
     expect(s.done).toBe(false);
-    expect(s.active).toBe("script_writer"); // firstNonDone
+    expect(s.active).toBe("brief"); // firstNonDone
     expect(s.frames).toEqual({ current: 0, total: 15 }); // no job → 30s default
   });
 
@@ -78,7 +78,9 @@ describe("deriveStageSignals", () => {
   it("mid-pipeline: current stage is active, earlier stages done, progress advances", () => {
     const s = deriveStageSignals({
       stages: [
+        stage("brief", "succeeded"),
         stage("script_writer", "succeeded"),
+        stage("dialogue_pass", "succeeded"),
         stage("reflection", "succeeded"),
         stage("designer", "running"),
       ],
@@ -92,8 +94,8 @@ describe("deriveStageSignals", () => {
     expect(s.stages.designer.phase).toBe("active");
     expect(s.stages.image_gen.phase).toBe("pending");
     expect(s.overall).toBe("running");
-    // 2 of 10 fallback stages done + a half-weighted active stage => (2 + 0.5)/10
-    expect(s.progress01).toBeCloseTo(0.25, 5);
+    // 4 of 13 fallback stages done + a half-weighted active stage => (4 + 0.5)/13
+    expect(s.progress01).toBeCloseTo(4.5 / 13, 5);
   });
 
   it("skipped stages count as done (e.g. narration in a dialogue film)", () => {

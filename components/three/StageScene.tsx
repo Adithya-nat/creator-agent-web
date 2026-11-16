@@ -42,7 +42,9 @@ function ActiveScene({ signals, reduced }: { signals: StageSignals; reduced: boo
   const active = signals.active ?? "assembler";
   const sig = signals.stages[active] ?? signals.stages.script_writer;
   switch (active) {
+    case "brief":
     case "script_writer":
+    case "dialogue_pass":
       return <ScriptScene signal={sig} reduced={reduced} count={signals.frames.total} />;
     case "reflection":
       return <ReflectionScene signal={sig} reduced={reduced} />;
@@ -57,6 +59,7 @@ function ActiveScene({ signals, reduced }: { signals: StageSignals; reduced: boo
     case "motion":
       return <FramesScene signal={sig} reduced={reduced} frames={signals.frames} />;
     case "assembler":
+    case "film_review":
     case "publish_kit":
       return <AssembleScene signal={sig} reduced={reduced} />;
     default:

@@ -13,6 +13,7 @@ import type {
   LogsResponse,
   StoryboardContent,
 } from "./types";
+import type { LiveAssets } from "./live";
 
 export const API_BASE = (
   process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000"
@@ -86,6 +87,10 @@ export const api = {
     const qs = p.toString();
     return req<LogsResponse>(`/storyboard/${id}/logs${qs ? `?${qs}` : ""}`);
   },
+
+  /** Assets produced so far by a running (or finished) job. 404 on servers
+   *  that predate live assets. */
+  getLive: (id: string) => req<LiveAssets>(`/storyboard/${id}/live`),
 
   getStoryboard: (id: string) =>
     req<StoryboardContent>(`/storyboard/${id}/storyboard`),
