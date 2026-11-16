@@ -110,5 +110,8 @@ describe("sign-in redirect target", () => {
     expect(safeNext("//evil.com")).toBe("/");
     expect(safeNext("/\\evil.com")).toBe("/");
     expect(safeNext("https://evil.com")).toBe("/");
+    expect(safeNext("/\t/evil.com")).toBe("/");
+    expect(safeNext("/\n/evil.com")).toBe("/");
+    expect(safeNext("/\\\\evil.com")).toBe("/");
   });
 });

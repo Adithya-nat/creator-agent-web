@@ -39,9 +39,16 @@ const COPY = {
   },
 } as const;
 
-/** Only same-site paths: "/status/x" yes, "//evil.com" or "https://…" no. */
+/** Only same-site paths. Parsed the way browsers do, so "//host", "/\\host" or "/<tab>/host" can't leave the site. */
 export function safeNext(raw: string | null): string {
-  return raw && raw.startsWith("/") && !raw.startsWith("//") && !raw.startsWith("/\\") ? raw : "/";
+  if (!raw || !raw.startsWith("/")) return "/";
+  try {
+    const base = "https://app.invalid";
+    const url = new URL(raw, base);
+    return url.origin === base ? `${url.pathname}${url.search}${url.hash}` : "/";
+  } catch {
+    return "/";
+  }
 }
 
 export function LoginCard({ mode = "login" }: { mode?: AuthMode }) {
@@ -63,7 +70,7 @@ export function LoginCard({ mode = "login" }: { mode?: AuthMode }) {
         provider,
         callbackURL: next,
         newUserCallbackURL: "/?welcome=1", // first sign-in = new account: go add a Gemini key
-        errorCallbackURL: `/${mode}?error=1`,
+        errorCallbackURL: `/${mode}?error=1${next !== "/" ? `&next=${encodeURIComponent(next)}` : ""}`,
       });
       if (res.error) throw new Error(res.error.message);
     } catch (e) {
