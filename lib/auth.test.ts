@@ -101,3 +101,14 @@ describe("api token cache", () => {
     expect(s.withMediaToken("http://api/x?a=1")).toBe("http://api/x?a=1&t=u.1.sig");
   });
 });
+
+describe("sign-in redirect target", () => {
+  it("only allows same-site paths", async () => {
+    const { safeNext } = await import("../app/login/LoginCard");
+    expect(safeNext("/status/abc?x=1")).toBe("/status/abc?x=1");
+    expect(safeNext(null)).toBe("/");
+    expect(safeNext("//evil.com")).toBe("/");
+    expect(safeNext("/\\evil.com")).toBe("/");
+    expect(safeNext("https://evil.com")).toBe("/");
+  });
+});

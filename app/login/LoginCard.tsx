@@ -22,18 +22,49 @@ const GoogleMark = () => (
   </svg>
 );
 
-export function LoginCard() {
+export type AuthMode = "login" | "signup";
+
+const COPY = {
+  login: {
+    title: "Welcome back.",
+    sub: "Log in to make the film in your head.",
+    switchText: "New here?",
+    switchLabel: "Create an account",
+  },
+  signup: {
+    title: "Create your account.",
+    sub: "One click with Google or GitHub, then make the film in your head.",
+    switchText: "Already have an account?",
+    switchLabel: "Log in",
+  },
+} as const;
+
+/** Only same-site paths: "/status/x" yes, "//evil.com" or "https://…" no. */
+export function safeNext(raw: string | null): string {
+  return raw && raw.startsWith("/") && !raw.startsWith("//") && !raw.startsWith("/\\") ? raw : "/";
+}
+
+export function LoginCard({ mode = "login" }: { mode?: AuthMode }) {
   const params = useSearchParams();
-  const next = params.get("next") || "/";
+  const next = safeNext(params.get("next"));
+  const copy = COPY[mode];
+  const switchHref = `${mode === "login" ? "/signup" : "/login"}${next !== "/" ? `?next=${encodeURIComponent(next)}` : ""}`;
   const [busy, setBusy] = useState<Provider | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(
+    params.get("error") ? "Sign-in didn't finish. Try again, or use the other provider." : null,
+  );
 
   const signIn = async (provider: Provider) => {
     setBusy(provider);
     setError(null);
     try {
       const { authClient } = await import("@/lib/authClient");
-      const res = await authClient.signIn.social({ provider, callbackURL: next.startsWith("/") ? next : "/" });
+      const res = await authClient.signIn.social({
+        provider,
+        callbackURL: next,
+        newUserCallbackURL: "/?welcome=1", // first sign-in = new account: go add a Gemini key
+        errorCallbackURL: `/${mode}?error=1`,
+      });
       if (res.error) throw new Error(res.error.message);
     } catch (e) {
       setError(e instanceof Error && e.message ? e.message : "Sign-in failed. Try again.");
@@ -54,7 +85,7 @@ export function LoginCard() {
         <span className="text-accent">▶</span> Open beta · bring your own key
       </p>
       <h1 className="mt-4 text-4xl font-medium leading-[1.05] tracking-tight text-white">
-        Sign in. <span className="text-white/45">Then make the film in your head.</span>
+        {copy.title} <span className="text-white/45">{copy.sub}</span>
       </h1>
 
       {AUTH_ENABLED ? (
@@ -70,6 +101,12 @@ export function LoginCard() {
             {busy === "google" ? <Spinner /> : <GoogleMark />} Continue with Google
           </button>
           {error && <p role="alert" className="text-sm text-state-bad">{error}</p>}
+          <p className="pt-3 text-sm text-white/55">
+            {copy.switchText}{" "}
+            <Link className="text-white underline decoration-accent underline-offset-4" href={switchHref}>
+              {copy.switchLabel}
+            </Link>
+          </p>
         </div>
       ) : (
         <p className="mt-8 text-white/60">
