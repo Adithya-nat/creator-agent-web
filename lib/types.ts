@@ -7,16 +7,24 @@ export type JobStatus =
   | "completed"
   | "completed_with_warnings"
   | "failed"
-  | "interrupted";
+  | "interrupted"
+  | "pausing" // pause requested: in-flight paid units are finishing
+  | "paused"; // parked: resume continues from the first unfinished unit
 
+// "No runner is active": the live stream closes. A paused job is in here (nothing
+// is running) but it is not finished; use isFinished / isParked to tell them apart.
 export const TERMINAL_STATUSES: JobStatus[] = [
   "completed",
   "completed_with_warnings",
   "failed",
   "interrupted",
+  "paused",
 ];
 
 export const isTerminal = (s: JobStatus): boolean => TERMINAL_STATUSES.includes(s);
+export const isParked = (s: JobStatus | null): boolean => s === "paused";
+/** Terminal and not resumable from a pause: the film is done, failed or interrupted. */
+export const isFinished = (s: JobStatus): boolean => isTerminal(s) && s !== "paused";
 export const isSuccess = (s: JobStatus): boolean =>
   s === "completed" || s === "completed_with_warnings";
 
@@ -27,7 +35,8 @@ export type StageStatus =
   | "failed"
   | "degraded"
   | "skipped"
-  | "interrupted";
+  | "interrupted"
+  | "paused";
 
 export interface StageRef {
   name: string;
@@ -81,6 +90,44 @@ export interface JobStatusResponse {
   artifacts: ArtifactRef[];
   // Set when the film stopped for missing AI clips and can finish with stills.
   video_gap?: VideoGap | null;
+  // Run controls (absent on servers without pause support).
+  pause_requested?: boolean;
+  breakpoints?: string[];
+}
+
+/** Per-unit state of a stage that spends per item (frames, scene clips). */
+export interface UnitProgress {
+  noun: string;
+  total: number;
+  done: number[]; // on disk: reused on resume, never billed again
+  in_flight: number[]; // already submitted and paid; finishing
+  pending: number[]; // not started; generated on resume
+  unit_cost_usd: number;
+}
+
+export interface CheckpointStage {
+  name: string;
+  status: StageStatus;
+  cost_usd: number;
+  remaining_usd: number;
+  units: UnitProgress | null;
+  breakpoint: boolean;
+}
+
+/** GET /storyboard/{id}/checkpoint: where a run stands and what finishing costs. */
+export interface Checkpoint {
+  job_id: string;
+  status: JobStatus;
+  pause_requested: boolean;
+  paused_stage: string | null;
+  paused_message: string | null;
+  resume_stage: string | null;
+  resume_unit: number | null;
+  breakpoints: string[];
+  spent_usd: number;
+  remaining_usd: number;
+  estimate_basis: "history" | "units";
+  stages: CheckpointStage[];
 }
 
 export interface VideoGap {
@@ -136,6 +183,7 @@ export interface SceneLine {
   speaker: string;
   text: string;
   delivery: string;
+  text_en?: string | null; // English rendering of a Tamil line (UI only)
 }
 
 export type SceneVoice = "narrator" | "on_camera" | "off_screen" | "silent";
@@ -170,6 +218,7 @@ export interface FilmReview {
 export interface StoryboardScene {
   order: number;
   narration: string; // the on-screen caption actually used
+  narration_en?: string | null;
   mode?: "narration" | "dialogue";
   lines?: SceneLine[];
   shots?: SceneShot[];
@@ -209,6 +258,8 @@ export interface StoryboardContent {
   status: JobStatus;
   title: string;
   logline: string;
+  title_en?: string | null; // English renderings for a Tamil film (the UI stays English)
+  logline_en?: string | null;
   style: string;
   duration: number;
   video_url: string | null;

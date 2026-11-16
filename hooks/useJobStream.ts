@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import {
   isTerminal,
@@ -24,11 +24,13 @@ export interface JobStream {
   /** Fingerprint of the job's published artifacts, from the SSE `assets` event
    *  (null on servers without live assets, or while polling). */
   assetsVersion: string | null;
+  /** Re-subscribe after a resume (the stream closed when the job paused or failed). */
+  restart: () => void;
 }
 
 export const JOB_LOG_KEY = "__job__"; // bucket for stage === null (job-level logs)
 
-const INITIAL: JobStream = {
+const INITIAL: Omit<JobStream, "restart"> = {
   job: null,
   status: null,
   stages: [],
@@ -50,13 +52,19 @@ const INITIAL: JobStream = {
  * looks frozen. 404/410 surface as an error (not found / expired).
  */
 export function useJobStream(jobId: string): JobStream {
-  const [state, setState] = useState<JobStream>(INITIAL);
+  const [state, setState] = useState<Omit<JobStream, "restart">>(INITIAL);
   const [streamFor, setStreamFor] = useState(jobId);
+  const [generation, setGeneration] = useState(0);
   if (streamFor !== jobId) {
     // New job: reset during render instead of in the effect.
     setStreamFor(jobId);
     setState(INITIAL);
   }
+  // Keep the job/stages on screen (no flash); logs replay from the start, so clear them.
+  const restart = useCallback(() => {
+    setState((s) => ({ ...s, logsByStage: {}, done: false, connection: "connecting" }));
+    setGeneration((g) => g + 1);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -226,7 +234,7 @@ export function useJobStream(jobId: string): JobStream {
       es?.close();
       if (pollTimer) clearTimeout(pollTimer);
     };
-  }, [jobId]);
+  }, [jobId, generation]);
 
-  return state;
+  return { ...state, restart };
 }

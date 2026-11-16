@@ -1,5 +1,6 @@
 "use client";
 
+import { Bilingual } from "@/components/Bilingual";
 import { api } from "@/lib/api";
 import { VoiceIcon } from "@/components/VoiceIcon";
 import { motionBadge, voiceBadge } from "@/lib/motionCoverage";
@@ -94,8 +95,8 @@ export function Filmstrip({
                 </p>
               )}
               {s.narration && (
-                <p className={`mt-1 line-clamp-3 whitespace-pre-line text-xs leading-snug text-muted ${tamil ? "font-tamil" : ""}`}>
-                  {s.narration}
+                <p className="mt-1 line-clamp-4 whitespace-pre-line text-xs leading-snug text-muted">
+                  <Bilingual text={s.narration} en={s.narration_en} tamil={tamil} enClassName="text-[11px] text-muted/80" />
                 </p>
               )}
             </button>

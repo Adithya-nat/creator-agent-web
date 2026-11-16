@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Bilingual } from "@/components/Bilingual";
 import { CastStrip } from "@/components/CastStrip";
 import { Filmstrip } from "@/components/Filmstrip";
 import { PublishPanel } from "@/components/PublishPanel";
@@ -121,11 +122,13 @@ export function ResultView({
         <div className="space-y-2">
           {content.title && (
             <h2 className="font-display text-2xl font-semibold tracking-tight">
-              {content.title}
+              <Bilingual text={content.title} en={content.title_en} tamil={tamil} enClassName="text-base font-normal text-muted" />
             </h2>
           )}
           {content.logline && (
-            <p className="text-muted">{content.logline}</p>
+            <p className="text-muted">
+              <Bilingual text={content.logline} en={content.logline_en} tamil={tamil} enClassName="text-sm text-muted/80" />
+            </p>
           )}
           {content.style && (
             <p className="text-sm text-muted">
@@ -135,7 +138,7 @@ export function ResultView({
           <div className="flex flex-wrap gap-2 pt-2 text-xs">
             {[
               content.story_style && `${STYLE_LABEL[content.story_style] ?? content.story_style}`,
-              content.language === "ta" ? "தமிழ்" : "English",
+              content.language === "ta" ? "Tamil" : "English",
               `${content.scenes.length} scenes · ${content.duration}s`,
               content.cost_usd ? `${formatUSD(content.cost_usd)} AI cost` : null,
               content.total_tokens > 0 ? `${formatTokens(content.total_tokens)} tokens` : null,

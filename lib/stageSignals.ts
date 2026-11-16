@@ -9,7 +9,7 @@
 
 import {
   STAGE_ORDER,
-  isTerminal,
+  isFinished,
   type JobStatus,
   type JobStatusResponse,
   type LogLine,
@@ -90,6 +90,7 @@ function phaseOf(st: StageRef, isCurrent: boolean): ScenePhase {
     case "interrupted":
       return "failed";
     case "running":
+    case "paused": // the line stopped here; it is still the station in view
       return "active";
     default:
       return isCurrent ? "active" : "pending";
@@ -155,7 +156,8 @@ export function deriveStageSignals(input: {
       activeFraction = Math.max(activeFraction, name === FRAME_STAGE ? progress01 : 0.5);
   });
 
-  const done = status != null && isTerminal(status);
+  // A paused job isn't done: the line stays on the station where it stopped.
+  const done = status != null && isFinished(status);
   const firstNonDone = order.find((n) => stageSignals[n].phase !== "done") ?? order[0];
   const active = done ? null : currentStage ?? firstNonDone;
   const progress01 = clamp01((doneCount + activeFraction) / order.length);

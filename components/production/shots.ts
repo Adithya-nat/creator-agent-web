@@ -68,12 +68,17 @@ export function standIns(jobId: string, count: number, pool: readonly Poster[] =
   return Array.from({ length: count }, (_, i) => deck[i % deck.length]);
 }
 
-/** The same payload with every asset URL made absolute (API base prefixed). */
+/** The same payload with every asset URL made absolute (API base prefixed). The
+ *  production line is app UI, so it stays English: a Tamil film's title, logline
+ *  and beats show their English rendering when the server has one. */
 export function resolveLive(live: LiveAssets | null): LiveAssets | null {
   if (!live) return null;
   const abs = (u: string | null) => (u ? api.asset(u) : null);
   return {
     ...live,
+    title: live.title_en || live.title,
+    logline: live.logline_en || live.logline,
+    beats: live.beats.map((b) => (b.text_en ? { ...b, text: b.text_en } : b)),
     style_ref_url: abs(live.style_ref_url),
     narration_url: abs(live.narration_url),
     music_url: abs(live.music_url),

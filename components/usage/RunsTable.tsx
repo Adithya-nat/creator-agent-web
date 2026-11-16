@@ -37,7 +37,7 @@ export function RunsTable({ runs }: { runs: RunRow[] }) {
                   {r.prompt}
                 </Link>
               </td>
-              <td className="px-4 py-2.5 capitalize text-muted">{r.style}{r.language === "ta" ? " · தமிழ்" : ""}</td>
+              <td className="px-4 py-2.5 capitalize text-muted">{r.style}{r.language === "ta" ? " · Tamil" : ""}</td>
               <td className="px-4 py-2.5 tabular-nums text-muted">{r.duration}s</td>
               <td className="whitespace-nowrap px-4 py-2.5 text-muted">{STATUS[r.status] ?? r.status}</td>
               <td className="px-4 py-2.5 tabular-nums text-muted">{r.scenes ? `${r.omni_scenes}/${r.scenes}` : "—"}</td>

@@ -5,6 +5,7 @@ import type {
   JobListItem,
   KeyCheck,
   Me,
+  Checkpoint,
   JobCreatedResponse,
   Language,
   PublishKit,
@@ -147,4 +148,20 @@ export const api = {
   // Resolve a relative artifact URL (e.g. /storyboard/x/artifacts/y) to absolute, signed for media.
   asset: (relativeUrl: string) =>
     relativeUrl.startsWith("http") ? relativeUrl : withMediaToken(`${API_BASE}${relativeUrl}`),
+
+  // --- Run controls -------------------------------------------------------- //
+  /** Stop starting paid work; in-flight units finish, then the job parks. */
+  pauseJob: (id: string) =>
+    req<{ job_id: string; status: string }>(`/storyboard/${id}/pause`, { method: "POST" }),
+
+  /** Replace the stages the run pauses BEFORE. */
+  setBreakpoints: (id: string, stages: string[]) =>
+    req<{ job_id: string; breakpoints: string[] }>(`/storyboard/${id}/breakpoints`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ stages }),
+    }),
+
+  /** Per-unit progress + the cost to finish. 404 on servers without run controls. */
+  getCheckpoint: (id: string) => req<Checkpoint>(`/storyboard/${id}/checkpoint`),
 };

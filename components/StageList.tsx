@@ -35,6 +35,12 @@ function StageIcon({ status }: { status: RowStatus }) {
       );
     case "skipped":
       return <span className={`${base} border border-dashed border-line text-muted`}>–</span>;
+    case "paused":
+      return (
+        <span className={`${base} bg-state-warn/15 text-[9px] tracking-[-0.05em] text-state-warn`} aria-label="paused">
+          ❚❚
+        </span>
+      );
     case "failed":
     case "interrupted":
       return <span className={`${base} bg-state-bad/15 text-state-bad`}>✕</span>;
@@ -66,11 +72,14 @@ export function StageList({
   logsByStage,
   currentStage,
   order = STAGE_ORDER,
+  breakpoints,
 }: {
   stages: StageRef[];
   logsByStage: Record<string, LogLine[]>;
   currentStage: string | null;
   order?: string[];
+  /** Stages the run will pause before (shown as a flag chip). */
+  breakpoints?: string[];
 }) {
   const rows = mergeStages(stages, order);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -129,6 +138,16 @@ export function StageList({
                   )}
                   {st.status === "skipped" && (
                     <span className="text-xs text-muted" title={st.message ?? undefined}>skipped</span>
+                  )}
+                  {st.status === "paused" && (
+                    <span className="truncate text-xs text-state-warn" title={st.message ?? undefined}>
+                      {st.message ?? "paused"}
+                    </span>
+                  )}
+                  {breakpoints?.includes(st.name) && (
+                    <span className="shrink-0 rounded-full bg-accent/15 px-2 py-0.5 text-[10px] font-medium text-accent">
+                      pause before
+                    </span>
                   )}
                 </div>
                 {showProgress && (
