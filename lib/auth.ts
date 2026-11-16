@@ -28,7 +28,7 @@ function create() {
           issuer: process.env.BETTER_AUTH_URL,
           audience: process.env.AUTH_AUDIENCE ?? "creator-agent-api",
           expirationTime: "15m",
-          definePayload: ({ user }) => ({ email: user.email, name: user.name }),
+          definePayload: ({ user }) => ({ email: user.email, emailVerified: user.emailVerified, name: user.name }),
         },
       }),
       nextCookies(),
