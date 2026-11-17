@@ -1,15 +1,16 @@
 @import "tailwindcss";
 
 @theme inline {
-  /* Screening room: midnight surfaces, warm paper text, marquee amber. */
-  --color-midnight: #141a2e;
-  --color-surface: #1c2440;
-  --color-surface-2: #262f4b;
-  --color-line: rgba(239, 232, 218, 0.1);
-  --color-ink: #efe8da;
-  --color-muted: #a7a196;
+  /* Same stage as the homepage: void black, celluloid text, tungsten amber, a cyan light leak. */
+  --color-midnight: #060709;
+  --color-surface: #0e1015;
+  --color-surface-2: #171a21;
+  --color-line: rgba(244, 239, 230, 0.09);
+  --color-ink: #f4efe6;
+  --color-muted: #8f949d;
   --color-accent: #f2b544;
   --color-accent-hover: #f6c463;
+  --color-leak: #6ee7f9;
   --color-leader: #e2557a;
   --color-state-ok: #6cc08b;
   --color-state-warn: #e8c547;
@@ -20,7 +21,7 @@
   --font-mono: var(--ff-mono), ui-monospace, monospace;
   --font-tamil: var(--ff-tamil), var(--ff-sans), system-ui, sans-serif;
 
-  --shadow-lift: 0 0 0 1px rgba(239, 232, 218, 0.08), 0 12px 32px -16px rgba(0, 0, 0, 0.6);
+  --shadow-lift: 0 0 0 1px rgba(244, 239, 230, 0.07), 0 18px 40px -20px rgba(0, 0, 0, 0.85);
 
   --ease-out-soft: cubic-bezier(0.2, 0, 0, 1);
 
@@ -48,10 +49,10 @@ body {
 }
 
 @layer components {
-  /* Flat midnight with a faint projector spill from the top. */
+  /* Void black with a faint projector spill from the top. */
   .bg-aurora {
     background:
-      radial-gradient(900px 520px at 50% -8%, rgba(242, 181, 68, 0.07), transparent 70%),
+      radial-gradient(900px 520px at 50% -8%, rgba(242, 181, 68, 0.06), transparent 70%),
       var(--color-midnight);
   }
 
@@ -67,7 +68,7 @@ body {
     border-radius: 0.75rem;
     border: 1px solid transparent;
     background: var(--color-surface-2);
-    box-shadow: 0 0 0 1px rgba(239, 232, 218, 0.06);
+    box-shadow: 0 0 0 1px rgba(244, 239, 230, 0.06);
   }
 
   .text-gradient {
@@ -177,4 +178,152 @@ a {
 }
 @media (prefers-reduced-motion: reduce) {
   .login-streaks span { animation: none; opacity: 0.25; }
+}
+
+/* ------------------------------------------------------------------------- */
+/* Studio                                                                     */
+/* ------------------------------------------------------------------------- */
+
+/* Poster columns drifting past like a lobby wall. Each column holds its list twice
+   and slides by half its height, so the loop never jumps. */
+.drift-col {
+  animation: drift var(--drift-dur, 60s) linear infinite;
+  animation-delay: var(--drift-delay, 0s);
+  will-change: transform;
+}
+.drift-col[data-dir="down"] {
+  animation-direction: reverse;
+}
+@keyframes drift {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(0, -50%, 0); }
+}
+
+/* The composer's light ring is its focus indicator, so its textarea skips the outline. */
+.composer-input:focus-visible {
+  outline: none;
+}
+
+/* Viewfinder corners, as on the homepage. */
+.corner {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border-color: var(--color-accent);
+  border-style: solid;
+  opacity: 0.8;
+  pointer-events: none;
+}
+.corner-tl { top: 10px; left: 10px; border-width: 1.5px 0 0 1.5px; }
+.corner-tr { top: 10px; right: 10px; border-width: 1.5px 1.5px 0 0; }
+.corner-bl { bottom: 10px; left: 10px; border-width: 0 0 1.5px 1.5px; }
+.corner-br { bottom: 10px; right: 10px; border-width: 0 1.5px 1.5px 0; }
+
+/* A slow amber-to-cyan light that runs around the composer while you write. */
+@property --ring-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+.light-ring {
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: conic-gradient(
+    from var(--ring-angle),
+    transparent 0deg,
+    rgba(242, 181, 68, 0.9) 60deg,
+    rgba(110, 231, 249, 0.7) 120deg,
+    transparent 180deg,
+    transparent 360deg
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 400ms var(--ease-out-soft);
+  animation: ring-spin 6s linear infinite;
+  pointer-events: none;
+}
+.group:focus-within > .light-ring,
+.light-ring[data-on="true"] {
+  opacity: 1;
+}
+@keyframes ring-spin {
+  to { --ring-angle: 360deg; }
+}
+
+/* The agent line: a pulse of light travels from station to station. */
+.agent-track {
+  background: linear-gradient(90deg, transparent, rgba(242, 181, 68, 0.9), rgba(110, 231, 249, 0.8), transparent);
+  background-size: 30% 100%;
+  background-repeat: no-repeat;
+  animation: track 7s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+@keyframes track {
+  from { background-position: -40% 0; }
+  to { background-position: 140% 0; }
+}
+.agent-node {
+  animation: node-on 7s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  animation-delay: calc(var(--i) * 0.82s);
+}
+@keyframes node-on {
+  0%, 100% { color: var(--color-muted); box-shadow: 0 0 0 1px rgba(244, 239, 230, 0.1); }
+  8% { color: var(--color-ink); box-shadow: 0 0 0 1px rgba(242, 181, 68, 0.7), 0 0 22px rgba(242, 181, 68, 0.35); }
+  22% { color: var(--color-muted); box-shadow: 0 0 0 1px rgba(244, 239, 230, 0.1); }
+}
+
+/* Light sweep across a button face on hover. */
+.sheen {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+.sheen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.45) 50%, transparent 70%);
+  translate: -120% 0;
+  transition: translate 700ms var(--ease-out-soft);
+}
+@media (hover: hover) {
+  .sheen:not(:disabled):hover::after {
+    translate: 120% 0;
+  }
+}
+
+/* Recording dot. */
+.rec-dot {
+  animation: rec 1.6s ease-in-out infinite;
+}
+@keyframes rec {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+
+/* Poster being developed: a scan of light down the frame. */
+.develop-scan {
+  background: linear-gradient(180deg, transparent, rgba(242, 181, 68, 0.22) 45%, rgba(110, 231, 249, 0.18) 55%, transparent);
+  background-size: 100% 40%;
+  background-repeat: no-repeat;
+  animation: develop 2.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+@keyframes develop {
+  from { background-position: 0 -60%; }
+  to { background-position: 0 160%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drift-col,
+  .light-ring,
+  .agent-track,
+  .agent-node,
+  .rec-dot,
+  .develop-scan {
+    animation: none;
+  }
 }

@@ -17,6 +17,7 @@ import type {
   LogsResponse,
   StoryboardContent,
 } from "./types";
+import type { LibraryDetails, LibraryDraft, LibraryEntry, PosterLook } from "./types";
 import type { LiveAssets } from "./live";
 import { getGeminiKey } from "./geminiKey";
 import { getApiToken, withMediaToken } from "./session";
@@ -164,4 +165,35 @@ export const api = {
 
   /** Per-unit progress + the cost to finish. 404 on servers without run controls. */
   getCheckpoint: (id: string) => req<Checkpoint>(`/storyboard/${id}/checkpoint`),
+};
+
+// --- Film library: publish a finished film (with a generated poster) to the homepage --- //
+const json = (method: string, body?: unknown): RequestInit => ({
+  method,
+  headers: { "content-type": "application/json" },
+  body: body === undefined ? undefined : JSON.stringify(body),
+});
+
+export const library = {
+  /** Form defaults for a finished film + its library entry. 404 on servers without the library. */
+  draft: (jobId: string) => req<LibraryDraft>(`/library/draft/${jobId}`),
+  get: (id: string) => req<LibraryEntry>(`/library/${id}`),
+  /** Copies the film into the library and starts its poster (an image call on the creator's key). */
+  create: (jobId: string, details: LibraryDetails, look: PosterLook, frame: number) =>
+    req<LibraryEntry>("/library", json("POST", { job_id: jobId, ...details, look, frame }), true),
+  edit: (id: string, patch: Partial<LibraryDetails>) => req<LibraryEntry>(`/library/${id}`, json("PATCH", patch)),
+  poster: (id: string, look: PosterLook, frame: number, tagline?: string | null) =>
+    req<LibraryEntry>(
+      `/library/${id}/poster`,
+      json("POST", tagline === undefined ? { look, frame } : { look, frame, tagline }),
+      true,
+    ),
+  publish: (id: string) => req<LibraryEntry>(`/library/${id}/publish`, json("POST")),
+  unpublish: (id: string) => req<LibraryEntry>(`/library/${id}/unpublish`, json("POST")),
+  remove: async (id: string) => {
+    const res = await send(`/library/${id}`, { method: "DELETE" });
+    if (!res.ok && res.status !== 404) throw new ApiError(res.status, "Couldn't remove the film from the library.");
+  },
+  /** A library file the creator owns (drafts included), signed for <img>/<video>. */
+  media: (relativeUrl: string) => withMediaToken(`${API_BASE}${relativeUrl}`),
 };

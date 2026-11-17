@@ -28,7 +28,7 @@ export function Segmented<T extends string | number>({
     <div
       role="radiogroup"
       aria-label={label}
-      className="inline-flex items-center gap-1 rounded-full border border-line bg-surface/60 p-1 backdrop-blur-md"
+      className="inline-flex items-center gap-0.5 rounded-full border border-transparent bg-ink/[0.04] p-[3px] shadow-[0_0_0_1px_var(--color-line)]"
     >
       {options.map((opt) => {
         const active = value === opt.value;
@@ -41,16 +41,16 @@ export function Segmented<T extends string | number>({
             title={opt.hint}
             disabled={disabled}
             onClick={() => onChange(opt.value)}
-            className="relative min-h-9 rounded-full px-4 py-1.5 text-sm font-medium transition-colors disabled:opacity-50"
+            className="relative min-h-9 rounded-full px-3 py-1.5 text-sm font-medium transition-colors duration-150 disabled:opacity-50"
           >
             {active && (
               <motion.span
                 layoutId={`${id}-pill`}
                 className="absolute inset-0 rounded-full bg-ink"
-                transition={{ type: "spring", stiffness: 400, damping: 32 }}
+                transition={{ type: "spring", duration: 0.35, bounce: 0 }}
               />
             )}
-            <span className={active ? "relative text-midnight" : "relative text-muted hover:text-ink"}>{opt.label}</span>
+            <span className={`relative transition-colors duration-150 ${active ? "text-midnight" : "text-muted hover:text-ink"}`}>{opt.label}</span>
           </button>
         );
       })}

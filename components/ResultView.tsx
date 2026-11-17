@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Bilingual } from "@/components/Bilingual";
 import { CastStrip } from "@/components/CastStrip";
 import { Filmstrip } from "@/components/Filmstrip";
+import { PremierePanel } from "@/components/library/PremierePanel";
 import { PublishPanel } from "@/components/PublishPanel";
 import { ScriptPanel } from "@/components/ScriptPanel";
 import { FilmReviewCard } from "@/components/FilmReviewCard";
@@ -165,6 +166,8 @@ export function ResultView({
           )}
         </div>
       </div>
+
+      {content.video_url && <PremierePanel jobId={jobId} scenes={content.scenes} tamil={tamil} />}
 
       <PublishPanel
         jobId={jobId}

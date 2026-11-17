@@ -391,3 +391,62 @@ export const STAGE_ORDER = [
   "film_review",
   "publish_kit",
 ];
+
+// --- Film library (publish a finished film to the homepage) ------------------ //
+export type PosterLook = "auto" | "blockbuster" | "thriller" | "retro" | "comedy" | "arthouse";
+export type LibraryStatus = "rendering" | "draft" | "published" | "failed";
+
+export interface LibraryMedia {
+  poster: string;
+  frame: string;
+  preview: string;
+  film: string;
+}
+
+export interface LibraryEntry {
+  id: string;
+  job_id: string;
+  status: LibraryStatus;
+  error: string | null;
+  title: string;
+  native_title: string | null;
+  tagline: string | null;
+  logline: string;
+  genre: string;
+  prompt: string | null;
+  language: string;
+  style: string;
+  length_seconds: number;
+  scenes: number;
+  made_minutes: number;
+  cost_usd: number;
+  published_at: string | null;
+  poster_look: PosterLook;
+  poster_frame: number;
+  poster_version: number;
+  posters_left: number;
+  frames: number[];
+  media: LibraryMedia;
+}
+
+export interface LibraryDraft {
+  title: string;
+  native_title: string | null;
+  logline: string;
+  genre: string;
+  prompt: string;
+  language: string;
+  cover_frame: number;
+  frames: number[];
+  looks: PosterLook[];
+  entry: LibraryEntry | null;
+}
+
+export interface LibraryDetails {
+  title: string;
+  native_title?: string | null;
+  tagline?: string | null;
+  logline: string;
+  genre: string;
+  show_prompt: boolean;
+}
