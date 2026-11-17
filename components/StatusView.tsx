@@ -2,6 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import dynamic from "next/dynamic";
+import { Clapperboard } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { PausePanel } from "@/components/controls/PausePanel";
 import { ToastProvider } from "@/components/controls/primitives";
@@ -12,6 +13,8 @@ import { JobErrorPanel } from "@/components/JobErrorPanel";
 import { JobIdChip } from "@/components/JobIdChip";
 import { ProductionLine } from "@/components/production/ProductionLine";
 import { PromptSummary } from "@/components/PromptSummary";
+import { RecutBay } from "@/components/recut/RecutBay";
+import { RecutProgress } from "@/components/recut/RecutProgress";
 import { ResultView } from "@/components/ResultView";
 import { StageList } from "@/components/StageList";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -19,11 +22,15 @@ import { TopBar } from "@/components/TopBar";
 import { type ConnState, useJobStream } from "@/hooks/useJobStream";
 import { liveSignal, useLiveAssets } from "@/hooks/useLiveAssets";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
+import { useRecutMap } from "@/hooks/useRecut";
 import { useCheckpoint, useRunControls } from "@/hooks/useRunControls";
 import { formatTokens } from "@/lib/format";
 import { breakableStages, controlPhase, resumeTarget, toggleStage } from "@/lib/runControls";
 import { stageOrderOf } from "@/lib/stageSignals";
-import { isFinished } from "@/lib/types";
+import { isFinished, type RecutRef } from "@/lib/types";
+
+const isTyping = (el: EventTarget | null) =>
+  el instanceof HTMLElement && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName));
 
 const CompletionFlourish = dynamic(
   () =>
@@ -83,6 +90,29 @@ function StatusViewInner({ jobId }: { jobId: string }) {
     restart();
     setCpNonce((n) => n + 1);
   }, [restart]);
+
+  // Recut: redo picked parts of a stopped or finished film.
+  const { map: recutMap, supported: recutSupported, refresh: refreshRecut } = useRecutMap(jobId, status, cpNonce);
+  const [recut, setRecut] = useState<{ open: boolean; initial: RecutRef[] }>({ open: false, initial: [] });
+  const openRecut = useCallback((initial: RecutRef[] = []) => setRecut({ open: true, initial }), []);
+  const closeRecut = useCallback(() => setRecut({ open: false, initial: [] }), []);
+  const canOpenRecut = recutSupported && !!recutMap && recutMap.scenes.length > 0 && !s.error;
+  const onRecutStarted = useCallback(() => {
+    closeRecut();
+    onResumed();
+    refreshRecut();
+  }, [closeRecut, onResumed, refreshRecut]);
+  // R opens the bay anywhere on the page (not while typing).
+  useEffect(() => {
+    if (!canOpenRecut) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.repeat || e.key.toLowerCase() !== "r" || e.metaKey || e.ctrlKey || e.altKey || isTyping(e.target)) return;
+      e.preventDefault();
+      setRecut((r) => (r.open ? r : { open: true, initial: [] }));
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [canOpenRecut]);
   // The checkpoint is the fresher source (and carries its read time); the job snapshot
   // covers servers or moments without one (read time unknown = 0).
   const controls = useRunControls(
@@ -94,7 +124,7 @@ function StatusViewInner({ jobId }: { jobId: string }) {
   );
   const order = stageOrderOf(s.job);
   const breakable = breakableStages(order, s.stages);
-  const showControls = supported && (phase === "running" || held);
+  const showControls = supported && (phase === "running" || held) && !recut.open;
   const trackControls = showControls
     ? {
         breakpoints: controls.breakpoints,
@@ -129,7 +159,7 @@ function StatusViewInner({ jobId }: { jobId: string }) {
   return (
     <main className="relative min-h-screen">
       <TopBar />
-      <div className={`relative mx-auto max-w-4xl px-5 pt-24 ${showControls ? "pb-40" : "pb-24"}`}>
+      <div className={`relative mx-auto max-w-4xl px-5 pt-24 ${recut.open ? "pb-80" : showControls ? "pb-40" : "pb-24"}`}>
         {success && showFlourish && (
           <div className="pointer-events-none absolute inset-x-0 top-16 z-20 h-72">
             <CompletionFlourish />
@@ -143,6 +173,18 @@ function StatusViewInner({ jobId }: { jobId: string }) {
               <div className="flex items-center justify-between gap-3">
                 <StatusBadge status={status} />
                 <div className="flex items-center gap-3">
+                  {canOpenRecut && !recut.open && (
+                    <button
+                      type="button"
+                      onClick={() => openRecut()}
+                      aria-keyshortcuts="r"
+                      title="Redo any part of this film (R)"
+                      className="press inline-flex min-h-9 items-center gap-1.5 rounded-full px-3 text-xs font-medium text-leak shadow-[0_0_0_1px_rgba(110,231,249,0.35)] hover:bg-leak/10"
+                    >
+                      <Clapperboard className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+                      Recut
+                    </button>
+                  )}
                   {tokensTotal > 0 && (
                     <span
                       className="text-xs text-muted"
@@ -158,7 +200,23 @@ function StatusViewInner({ jobId }: { jobId: string }) {
               <JobIdChip jobId={jobId} expiresAt={s.job?.expires_at} />
             </header>
 
-            {success && (
+            <AnimatePresence initial={false}>
+              {recut.open && recutMap && (
+                <motion.div key="recut" className="mb-10" exit={{ opacity: 0, y: -12, filter: "blur(4px)", transition: EXIT }}>
+                  <RecutBay
+                    jobId={jobId}
+                    map={recutMap}
+                    initial={recut.initial}
+                    pausing={phase === "pausing"}
+                    onPause={() => void controls.pause()}
+                    onStarted={onRecutStarted}
+                    onClose={closeRecut}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {success && !recut.open && (
               <section className="mb-10">
                 <ResultView jobId={jobId} warnings={s.job?.warnings ?? []} />
               </section>
@@ -171,12 +229,13 @@ function StatusViewInner({ jobId }: { jobId: string }) {
                   status={status as "failed" | "interrupted"}
                   error={s.job?.error ?? null}
                   gap={s.job?.video_gap ?? null}
+                  onRecut={canOpenRecut ? openRecut : undefined}
                 />
               </section>
             )}
 
             <AnimatePresence initial={false}>
-              {held && supported && (
+              {held && supported && !recut.open && (
                 <motion.div
                   key="hold"
                   initial={{ opacity: 0, y: 12, filter: "blur(4px)" }}
@@ -196,6 +255,10 @@ function StatusViewInner({ jobId }: { jobId: string }) {
                 </motion.div>
               )}
             </AnimatePresence>
+
+            {!finished && recutMap && recutMap.cuts.length > 1 && !recut.open && (
+              <RecutProgress map={recutMap} stages={s.stages} running={phase === "running"} />
+            )}
 
             {!finished && (
               <section className="mb-10">

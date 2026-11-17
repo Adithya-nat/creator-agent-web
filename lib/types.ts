@@ -450,3 +450,133 @@ export interface LibraryDetails {
   genre: string;
   show_prompt: boolean;
 }
+
+// --- Recut: redo picked parts of a stopped or finished film ----------------- //
+export type RecutKind = "story" | "look" | "scene" | "frame" | "clip" | "voice" | "score" | "release";
+
+export interface RecutRef {
+  kind: RecutKind;
+  unit: number | null;
+}
+
+export interface TakeView {
+  id: string;
+  cut: number; // the cut that replaced it
+  kind: string;
+  unit: number | null;
+  label: string;
+  at: string;
+  urls: string[];
+  restorable: boolean;
+}
+
+export interface RecutShot {
+  size: string;
+  action: string;
+  camera: string;
+  seconds: number;
+  lines: SceneLine[];
+}
+
+export type RecutSceneStatus = "ok" | "qc" | "blocked" | "missing" | "pending";
+
+export interface RecutScene {
+  order: number;
+  mode: string;
+  beat_role: string;
+  location: string;
+  planned_seconds: number;
+  seconds: number;
+  description: string;
+  narration: string;
+  shots: RecutShot[];
+  frame_url: string | null;
+  clip_url: string | null;
+  voice_url: string | null;
+  status: RecutSceneStatus;
+  issues: string[];
+  takes: TakeView[];
+}
+
+export interface RecutFilmItem {
+  kind: "story" | "look" | "score" | "release";
+  label: string;
+  ready: boolean;
+  detail: string;
+  url: string | null;
+  takes: TakeView[];
+  cues: number[];
+}
+
+export interface CutView {
+  cut: number;
+  kind: "first" | "recut" | "restore";
+  at: string;
+  summary: string;
+  note: string;
+  picked: string[];
+  items: string[];
+  cost_usd: number | null;
+  scene_seconds: Record<string, number>;
+  video_url: string | null;
+  current: boolean;
+}
+
+export interface RecutMap {
+  job_id: string;
+  status: JobStatus;
+  can_recut: boolean;
+  reason: string | null;
+  language: string;
+  title: string;
+  pipeline: string[];
+  kinds: RecutKind[];
+  scenes: RecutScene[];
+  film: RecutFilmItem[];
+  cuts: CutView[];
+  cast: CastMember[];
+}
+
+export interface ShotDiff {
+  index: number;
+  seconds: number;
+  size_before: string;
+  size_after: string;
+  action_before: string;
+  action_after: string;
+  lines_before: SceneLine[];
+  lines_after: SceneLine[];
+}
+
+export interface SceneDiff {
+  order: number;
+  description_before: string;
+  description_after: string;
+  redraw_frame: boolean;
+  shots: ShotDiff[];
+}
+
+export interface RecutExtra extends RecutRef {
+  label: string;
+  reason: string;
+  usd: number;
+}
+
+export interface RecutPlan {
+  plan_id: string | null;
+  summary: string;
+  directed: boolean;
+  scenes: SceneDiff[];
+  notes: { kind: string; text: string }[];
+  extra: RecutExtra[];
+  items: RecutRef[];
+  stages: string[];
+  estimate: { usd: number; seconds: number };
+  review_frames_available: boolean;
+}
+
+export interface RecutStarted {
+  job_id: string;
+  status: JobStatus;
+  cut: number;
+}

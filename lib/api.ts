@@ -18,6 +18,7 @@ import type {
   StoryboardContent,
 } from "./types";
 import type { LibraryDetails, LibraryDraft, LibraryEntry, PosterLook } from "./types";
+import type { RecutMap, RecutPlan, RecutRef, RecutStarted } from "./types";
 import type { LiveAssets } from "./live";
 import { getGeminiKey } from "./geminiKey";
 import { getApiToken, withMediaToken } from "./session";
@@ -195,5 +196,21 @@ export const library = {
     if (!res.ok && res.status !== 404) throw new ApiError(res.status, "Couldn't remove the film from the library.");
   },
   /** A library file the creator owns (drafts included), signed for <img>/<video>. */
+  media: (relativeUrl: string) => withMediaToken(`${API_BASE}${relativeUrl}`),
+};
+
+// --- Recut: redo picked parts of a film (frames, clips, scenes, look, score, story) --- //
+export const recut = {
+  /** Everything that can be redone, with takes and cuts. 404 on servers without recut. */
+  map: (jobId: string) => req<RecutMap>(`/storyboard/${jobId}/recut`),
+  /** The director's edits + what rebuilds + cost. Spends only a text call, and only with a note. */
+  plan: (jobId: string, targets: RecutRef[], note: string) =>
+    req<RecutPlan>(`/storyboard/${jobId}/recut/plan`, json("POST", { targets, note }), true),
+  start: (
+    jobId: string,
+    body: { plan_id?: string | null; targets?: RecutRef[]; accept_extra?: RecutRef[]; review_frames?: boolean },
+  ) => req<RecutStarted>(`/storyboard/${jobId}/recut`, json("POST", body), true),
+  restore: (jobId: string, takeId: string) =>
+    req<RecutStarted>(`/storyboard/${jobId}/takes/${encodeURIComponent(takeId)}/restore`, json("POST"), true),
   media: (relativeUrl: string) => withMediaToken(`${API_BASE}${relativeUrl}`),
 };

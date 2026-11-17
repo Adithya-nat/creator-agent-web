@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useAccount } from "@/components/account/AccountProvider";
 import { Spinner } from "@/components/Spinner";
 import { api } from "@/lib/api";
-import type { VideoGap } from "@/lib/types";
+import type { RecutRef, VideoGap } from "@/lib/types";
 import { gapCopy } from "@/lib/videoGap";
 
 type Action = "resume" | "finish";
@@ -14,11 +14,14 @@ export function FailurePanel({
   status,
   error,
   gap,
+  onRecut,
 }: {
   jobId: string;
   status: "failed" | "interrupted";
   error: string | null;
   gap?: VideoGap | null;
+  /** Open the recut bay with these items picked (e.g. the blocked scenes' clips). */
+  onRecut?: (picked: RecutRef[]) => void;
 }) {
   const [busy, setBusy] = useState<Action | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -119,6 +122,16 @@ export function FailurePanel({
             "Resume generation"
           )}
         </button>
+        {onRecut && gap && gap.missing.length > 0 && (
+          <button
+            type="button"
+            onClick={() => onRecut(gap.missing.map((n) => ({ kind: "clip" as const, unit: n })))}
+            disabled={busy !== null}
+            className="inline-flex items-center gap-2 rounded-full px-5 py-2 text-sm font-medium text-leak shadow-[0_0_0_1px_rgba(110,231,249,0.4)] press hover:bg-leak/10 disabled:opacity-50"
+          >
+            {gap.missing.length === 1 ? `Fix scene ${gap.missing[0]} with a note` : `Fix scenes ${gap.missing.join(", ")} with a note`}
+          </button>
+        )}
         {msg && <span className="text-sm text-state-warn">{msg}</span>}
       </div>
     </div>
