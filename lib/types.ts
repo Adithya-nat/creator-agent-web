@@ -335,9 +335,14 @@ export interface RunRow {
 }
 
 export type UsageRange = "7d" | "30d" | "month" | "all";
+/** "me" = the caller's runs; "all" = every user's runs, as aggregates (no prompts). */
+export type UsageScope = "me" | "all";
 
 export interface UsageSummary {
   range: UsageRange;
+  /** Absent on servers that predate project-wide usage (they always answer for "me"). */
+  scope?: UsageScope;
+  creators?: number;
   runs: number;
   completed_runs: number;
   success_rate: number;

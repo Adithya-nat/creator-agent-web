@@ -12,6 +12,7 @@ import type {
   RunRow,
   StoryStyle,
   UsageRange,
+  UsageScope,
   UsageSummary,
   JobStatusResponse,
   LogsResponse,
@@ -107,7 +108,8 @@ export const api = {
 
   getPublishKit: (id: string) => req<PublishKit>(`/storyboard/${id}/publish`),
   getBudget: () => req<BudgetStatus>("/budget"),
-  getUsageSummary: (range: UsageRange) => req<UsageSummary>(`/usage/summary?range=${range}`),
+  getUsageSummary: (range: UsageRange, scope: UsageScope = "me") =>
+    req<UsageSummary>(`/usage/summary?range=${range}&scope=${scope}`),
   getUsageRuns: (limit = 50) => req<RunRow[]>(`/usage/runs?limit=${limit}`),
 
   getJob: (id: string) => req<JobStatusResponse>(`/storyboard/${id}`),

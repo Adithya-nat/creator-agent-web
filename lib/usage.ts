@@ -1,3 +1,5 @@
+import type { UsageScope, UsageSummary } from "@/lib/types";
+
 // Chart palette: validated (dataviz validate_palette, dark mode, surface #12141c).
 // Fixed order: a category keeps its color regardless of which categories are present.
 export const CATEGORY_ORDER = ["video", "image", "text", "tts", "transcribe", "music"] as const;
@@ -34,4 +36,34 @@ export function styleDurationRows(avg: Record<string, number>) {
 
 export function share(part: number, total: number): number {
   return total > 0 ? part / total : 0;
+}
+
+// --- Everyone vs you ----------------------------------------------------------------- //
+
+/** Both views of one range. `all` is null when the server can't answer project-wide. */
+export interface UsagePair {
+  me: UsageSummary;
+  all: UsageSummary | null;
+}
+
+export const SCOPE_LABEL: Record<UsageScope, string> = { all: "Everyone", me: "You" };
+// One identity per side across the page: everyone = blue, you = celluloid white
+// (white so it never collides with a category color in the stacked charts).
+export const SCOPE_COLOR: Record<UsageScope, string> = { all: "#3987e5", me: "#f4efe6" };
+
+/** An old server ignores ?scope=all and answers for the caller; don't present that as the project. */
+export function toPair(me: UsageSummary, all: UsageSummary): UsagePair {
+  return { me, all: all.scope === "all" ? all : null };
+}
+
+/** The summary to show for a scope, plus the other side to compare against (if any). */
+export function viewOf(pair: UsagePair, scope: UsageScope): { view: UsageSummary; other: UsageSummary | null; otherScope: UsageScope } {
+  if (scope === "all" && pair.all) return { view: pair.all, other: pair.me, otherScope: "me" };
+  return { view: pair.me, other: pair.all, otherScope: "all" };
+}
+
+/** Daily rows with the caller's own total alongside (`you_total`; 0 on days you spent nothing). */
+export function withYou(days: UsageSummary["by_day"], mine: UsageSummary["by_day"]) {
+  const you = new Map(mine.map((d) => [d.date, d.total]));
+  return days.map((d) => ({ ...d, you_total: you.get(d.date) ?? 0 }));
 }
