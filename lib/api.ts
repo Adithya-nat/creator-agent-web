@@ -13,6 +13,7 @@ import type {
   StoryStyle,
   UsageRange,
   UsageScope,
+  UsageInsights,
   UsageSummary,
   JobStatusResponse,
   LogsResponse,
@@ -111,6 +112,9 @@ export const api = {
   getUsageSummary: (range: UsageRange, scope: UsageScope = "me") =>
     req<UsageSummary>(`/usage/summary?range=${range}&scope=${scope}`),
   getUsageRuns: (limit = 50) => req<RunRow[]>(`/usage/runs?limit=${limit}`),
+  getUsageInsights: (tz: string) => req<UsageInsights>(`/usage/insights?tz=${encodeURIComponent(tz)}`),
+  /** Public library media (posters) live on the API host. */
+  apiUrl: (path: string) => `${API_BASE}${path}`,
 
   getJob: (id: string) => req<JobStatusResponse>(`/storyboard/${id}`),
 

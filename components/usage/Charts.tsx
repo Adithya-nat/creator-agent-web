@@ -1,9 +1,9 @@
 "use client";
 
 import { useReducedMotion } from "framer-motion";
-import { Bar, BarChart, CartesianGrid, ComposedChart, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, CartesianGrid, ComposedChart, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { formatUSD } from "@/lib/format";
-import { CATEGORY_COLOR, CATEGORY_LABEL, DURATION_COLOR, orderedCategories, SCOPE_COLOR, styleDurationRows, withYou } from "@/lib/usage";
+import { CATEGORY_COLOR, CATEGORY_LABEL, orderedCategories, SCOPE_COLOR, withYou } from "@/lib/usage";
 import type { UsageSummary } from "@/lib/types";
 
 const SURFACE = "#0e1015"; // card surface, so the 2px stack gaps read as gaps, not outlines
@@ -49,27 +49,6 @@ export function DailySpendChart({ data, mine }: { data: UsageSummary["by_day"]; 
                 dot={{ r: 2.5, fill: SCOPE_COLOR.me, stroke: SURFACE, strokeWidth: 1.5 }} activeDot={{ r: 4 }} {...motion} />
         )}
       </ComposedChart>
-    </ResponsiveContainer>
-  );
-}
-
-/** Average cost per run by story style, 30s vs 60s side by side. */
-export function StyleCostChart({ avg }: { avg: Record<string, number> }) {
-  const motion = useChartMotion();
-  const rows = styleDurationRows(avg);
-  if (rows.length === 0) return <p className="text-sm text-muted">Finish a few runs to see averages.</p>;
-  return (
-    <ResponsiveContainer width="100%" height={220}>
-      <BarChart data={rows} margin={{ top: 8, right: 8, bottom: 0, left: -8 }} barGap={2}>
-        <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.06)" />
-        <XAxis dataKey="storyStyle" {...AXIS} tickFormatter={(s: string) => s[0].toUpperCase() + s.slice(1)} />
-        <YAxis {...AXIS} tickFormatter={(v: number) => formatUSD(v)} width={56} />
-        <Tooltip {...TOOLTIP} formatter={(v, k) => [formatUSD(Number(v)), `${k}s video`]} />
-        <Legend formatter={(k: string) => <span className="text-xs text-muted">{k}s video</span>} />
-        {(["30", "60"] as const).map((d) => (
-          <Bar key={d} dataKey={d} fill={DURATION_COLOR[d]} radius={[4, 4, 0, 0]} maxBarSize={40} {...motion} />
-        ))}
-      </BarChart>
     </ResponsiveContainer>
   );
 }

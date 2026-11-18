@@ -360,6 +360,68 @@ export interface UsageSummary {
   by_language: Record<string, number>;
 }
 
+// --- Usage insights: the studio's story so far (all time, in the viewer's timezone) --- //
+export interface InsightDay { date: string; runs: number; films: number; cost_usd: number }
+export interface FilmPoint {
+  n: number;
+  /** Only in your own view. */
+  job_id: string | null;
+  started_at: string | null;
+  film_score: number | null;
+  judge_score: number | null;
+  cost_usd: number;
+  duration: number;
+  style: StoryStyle;
+  language: string;
+  ai_share: number | null;
+}
+export interface SweetSpot { key: string; films: number; avg_cost_usd: number; avg_film_score: number | null; avg_judge_score: number | null }
+export interface StageCost { stage: string; cost_usd: number; avg_seconds: number | null; timed_runs: number }
+export interface ShelfFilm { id: string; title: string; genre: string; language: string; length_seconds: number; published_at: string | null; poster: string }
+export interface StudioStats {
+  creators: number;
+  runs: number;
+  films: number;
+  screen_seconds: number;
+  scenes: number;
+  ai_scenes: number;
+  images: number;
+  video_seconds: number;
+  tokens: number;
+  spend_usd: number;
+  published: number;
+  library: ShelfFilm[];
+  genres: Record<string, number>;
+  renders: number;
+  rendered_seconds: number;
+  shooting_ratio: number | null;
+  songs: number;
+  languages: Record<string, number>;
+  styles: Record<string, number>;
+  outcomes: Record<string, number>;
+  first_at: string | null;
+  last_at: string | null;
+  active_days: number;
+  current_streak: number;
+  longest_streak: number;
+  activity: InsightDay[];
+  /** [weekday 0=Mon][hour 0-23] runs started. */
+  punchcard: number[][];
+  stages: StageCost[];
+  timeline: FilmPoint[];
+  sweet_spots: SweetSpot[];
+}
+/** Share (0-1) of the OTHER creators you're ahead of. */
+export interface CreatorRank { creators: number; films: number; score: number | null; value: number | null }
+export interface UsageInsights {
+  tz: string;
+  stage_order: string[];
+  me: StudioStats;
+  all: StudioStats;
+  /** Null until at least three creators have runs (or in local mode). */
+  rank: CreatorRank | null;
+}
+
 export type Duration = 30 | 60;
 
 // Friendly labels for the pipeline stages (backend names -> human copy).

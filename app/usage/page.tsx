@@ -9,12 +9,18 @@ import { Segmented } from "@/components/ui/Segmented";
 import { fmtInt, fmtMinutes, fmtPct } from "@/components/usage/AnimatedNumber";
 import { BudgetCard } from "@/components/usage/BudgetCard";
 import { CategoryBar } from "@/components/usage/CategoryBar";
-import { DailySpendChart, StyleCostChart } from "@/components/usage/Charts";
+import { DailySpendChart } from "@/components/usage/Charts";
+import { PipelineCost, ScoreTimeline, ShootingRatio, SweetSpots, YourShelf } from "@/components/usage/insights/Craft";
+import { Milestones, RankCard } from "@/components/usage/insights/Milestones";
+import { ActivityCalendar, Punchcard } from "@/components/usage/insights/Rhythm";
+import { Kicker } from "@/components/usage/insights/Section";
+import { StudioReel } from "@/components/usage/insights/StudioReel";
 import { MeterList } from "@/components/usage/MeterList";
 import { RunsTable } from "@/components/usage/RunsTable";
 import { SpendHero } from "@/components/usage/SpendHero";
 import { StatTile } from "@/components/usage/StatTile";
 import { useBudget } from "@/hooks/useBudget";
+import { useInsights } from "@/hooks/useInsights";
 import { useUsage } from "@/hooks/useUsage";
 import { api } from "@/lib/api";
 import { formatUSD } from "@/lib/format";
@@ -48,8 +54,21 @@ function Card({ title, aside, children }: { title: string; aside?: React.ReactNo
   );
 }
 
+const block = "animate-pulseGlow rounded-[1.25rem] bg-ink/[0.035]";
+
+function InsightsSkeleton() {
+  return (
+    <div className="space-y-6" aria-hidden="true">
+      <div className={`${block} h-72`} />
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div className={`${block} h-60`} />
+        <div className={`${block} h-60`} />
+      </div>
+    </div>
+  );
+}
+
 function Skeleton() {
-  const block = "animate-pulseGlow rounded-[1.25rem] bg-ink/[0.035]";
   return (
     <div className="space-y-6" aria-hidden="true">
       <div className="grid gap-4 lg:grid-cols-[1.7fr_1fr]">
@@ -68,6 +87,7 @@ export default function UsagePage() {
   const [range, setRange] = useState<UsageRange>("30d");
   const [scope, setScope] = useState<UsageScope>("all");
   const { pair, stale, error } = useUsage(range);
+  const insights = useInsights();
   const [runs, setRuns] = useState<RunRow[] | null>(null);
   const budget = useBudget(30_000);
   const reduce = useReducedMotion();
@@ -77,13 +97,17 @@ export default function UsagePage() {
     api.getUsageRuns(100).then(setRuns).catch(() => setRuns([]));
   }, []);
 
-  const projectReady = pair?.all != null;
+  const projectReady = pair?.all != null || insights.data != null;
   const shown: UsageScope = projectReady ? scope : "me";
-  const v = pair ? viewOf(pair, shown) : null;
+  // Spend falls back to your own numbers on servers without project-wide totals.
+  const spendScope: UsageScope = pair?.all != null ? shown : "me";
+  const v = pair ? viewOf(pair, spendScope) : null;
   const vs = (pick: (s: UsageSummary) => number | null | undefined) =>
     v?.other ? { scope: v.otherScope, value: pick(v.other) } : undefined;
   // In the project view, draw your part inside each chart; in your view the totals stand alone.
-  const mine = shown === "all" ? pair?.me : undefined;
+  const mine = spendScope === "all" ? pair?.me : undefined;
+  const ins = insights.data;
+  const studio = ins ? ins[shown] : null;
 
   // Staged entrance, once, when the first numbers land (100ms apart; reduced motion = fade).
   const section: Variants = reduce
@@ -96,7 +120,7 @@ export default function UsagePage() {
       <div className="mx-auto max-w-6xl space-y-6 px-4 pb-16 pt-24 sm:px-5">
         <header className="flex flex-wrap items-end justify-between gap-4">
           <div className="min-w-0">
-            <h1 className="font-display text-3xl font-semibold tracking-tight">Usage & cost</h1>
+            <h1 className="font-display text-3xl font-semibold tracking-tight">Your studio</h1>
             <div className="relative mt-1 min-h-5 text-sm text-muted">
               <AnimatePresence initial={false} mode="popLayout">
                 <motion.p
@@ -106,17 +130,50 @@ export default function UsagePage() {
                   exit={{ opacity: 0, filter: "blur(4px)", transition: EXIT }}
                 >
                   {shown === "all"
-                    ? "Estimated AI spend across every creator. Prompts stay private."
-                    : "Estimated AI spend on your own runs. Billing is authoritative."}
+                    ? "What every creator has made, how it's going, and what it costs. Prompts stay private."
+                    : "What you've made, how it's going, and what it costs."}
                 </motion.p>
               </AnimatePresence>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {(!pair || projectReady) && <Segmented id="scope" label="Whose usage" value={shown} onChange={setScope} options={SCOPES} />}
-            <Segmented id="range" label="Time range" value={range} onChange={setRange} options={RANGES} />
-          </div>
+          {(!pair || projectReady) && <Segmented id="scope" label="Whose numbers" value={shown} onChange={setScope} options={SCOPES} />}
         </header>
+
+        {/* --- The studio's story, all time ------------------------------------------- */}
+        {ins && studio ? (
+          <motion.div className="space-y-6" initial="hidden" animate="show" variants={{ show: { transition: { staggerChildren: 0.1 } } }}>
+            <motion.div variants={section}>
+              <StudioReel stats={studio} scope={shown} />
+            </motion.div>
+            <motion.div variants={section} className="grid gap-6 lg:grid-cols-2">
+              <Milestones stats={ins.me} />
+              <RankCard rank={ins.rank} />
+            </motion.div>
+            <ActivityCalendar stats={studio} scope={shown} />
+            <div className="grid gap-6 lg:grid-cols-[1.45fr_1fr]">
+              <Punchcard stats={studio} scope={shown} tz={ins.tz} />
+              <ShootingRatio stats={studio} />
+            </div>
+            <ScoreTimeline stats={studio} scope={shown} />
+            <div className="grid gap-6 lg:grid-cols-2">
+              <PipelineCost stats={studio} />
+              <SweetSpots stats={studio} />
+            </div>
+            <YourShelf stats={ins.me} />
+          </motion.div>
+        ) : (
+          !insights.missing && <InsightsSkeleton />
+        )}
+
+        {/* --- Spend, for a chosen range ------------------------------------------------ */}
+        <div className="flex flex-wrap items-end justify-between gap-4 pt-6">
+          <div>
+            <Kicker>Spend</Kicker>
+            <h2 className="mt-1.5 font-display text-2xl font-semibold tracking-tight">Usage & cost</h2>
+            <p className="mt-0.5 text-sm text-muted">Estimated AI spend. Billing is authoritative.</p>
+          </div>
+          <Segmented id="range" label="Time range" value={range} onChange={setRange} options={RANGES} />
+        </div>
 
         {error && <p role="alert" className="glass p-4 text-sm text-state-bad">{pair ? `Couldn't refresh: ${error}` : error}</p>}
 
@@ -128,11 +185,12 @@ export default function UsagePage() {
             style={{ opacity: stale ? 0.55 : 1 }}
             aria-busy={stale}
             initial="hidden"
-            animate="show"
+            whileInView="show"
+            viewport={{ once: true, margin: "-40px" }}
             variants={{ show: { transition: { staggerChildren: 0.1 } } }}
           >
             <motion.div variants={section} className="grid gap-4 lg:grid-cols-[1.7fr_1fr]">
-              <SpendHero pair={pair} scope={shown} />
+              <SpendHero pair={pair} scope={spendScope} />
               {budget ? <BudgetCard budget={budget} /> : <div className="glass p-5 text-sm text-muted">Loading budget…</div>}
             </motion.div>
 
@@ -158,17 +216,11 @@ export default function UsagePage() {
             </motion.div>
 
             <motion.div variants={section} className="grid gap-6 lg:grid-cols-2">
-              <Card title="Where the money goes">
-                <CategoryBar byCategory={v.view.by_category} scope={shown}
+              <Card title="By category">
+                <CategoryBar byCategory={v.view.by_category} scope={spendScope}
                              compare={v.other ? { scope: v.otherScope, byCategory: v.other.by_category } : undefined} />
               </Card>
-              <Card title="Average cost per video">
-                <StyleCostChart avg={v.view.avg_cost_by_style_duration} />
-              </Card>
-            </motion.div>
-
-            <motion.div variants={section}>
-              <Card title="Spend by model" aside={mine ? "Bright part of each bar is you" : undefined}>
+              <Card title="By model" aside={mine ? "Bright part of each bar is you" : undefined}>
                 <MeterList rows={v.view.by_model} mine={mine?.by_model} />
               </Card>
             </motion.div>
