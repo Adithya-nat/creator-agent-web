@@ -11,11 +11,11 @@ import type { UnitProgress } from "@/lib/types";
 
 const STATE_TEXT: Record<TileState, string> = {
   done: "kept, won't be paid for again",
-  in_flight: "already paid for, finishing",
+  in_flight: "paid for, still landing; kept",
   pending: "not started, made on resume",
 };
 
-/** Every unit of the stage the run stopped in: kept, finishing, or still to make,
+/** Every unit of the stage the run stopped in: kept, still landing, or still to make,
  *  with a playhead on the exact unit a resume starts at. */
 export function ResumeMap({
   stage,
@@ -74,7 +74,7 @@ export function ResumeMap({
         </li>
         {units.in_flight.length > 0 && (
           <li className="flex items-center gap-1.5">
-            <span aria-hidden className="h-2 w-2 rounded-full bg-accent animate-pulseGlow" /> Paid for, finishing ({units.in_flight.length})
+            <span aria-hidden className="h-2 w-2 rounded-full bg-accent animate-pulseGlow" /> Paid for, still landing ({units.in_flight.length})
           </li>
         )}
         <li className="flex items-center gap-1.5">

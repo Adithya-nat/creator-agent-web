@@ -70,7 +70,16 @@ export function StatusView({ jobId }: { jobId: string }) {
 
 function StatusViewInner({ jobId }: { jobId: string }) {
   const s = useJobStream(jobId);
-  const status = s.status;
+  // A pause takes effect at once on the server, so show it at once: don't wait for the
+  // stream's next tick. Any status the stream reports afterwards wins.
+  const [pauseSent, setPauseSent] = useState(false);
+  const [streamStatus, setStreamStatus] = useState(s.status);
+  if (s.status !== streamStatus) {
+    setStreamStatus(s.status);
+    setPauseSent(false);
+  }
+  const onPaused = useCallback(() => setPauseSent(true), []);
+  const status = pauseSent && s.status === "running" ? "pausing" : s.status;
   const reduced = usePrefersReducedMotion();
 
   // "finished" = done for good; a paused film is resumable, so it keeps the line.
@@ -79,7 +88,7 @@ function StatusViewInner({ jobId }: { jobId: string }) {
     status === "completed" || status === "completed_with_warnings";
   const failed = status === "failed" || status === "interrupted";
   const phase = controlPhase(status);
-  const held = phase === "pausing" || phase === "paused";
+  const held = phase === "paused";
   const live = useLiveAssets(jobId, liveSignal(s.assetsVersion, s.job, s.stages), !s.error && !finished);
 
   // Run controls: checkpoint (per-unit state + cost), actions, breakpoints.
@@ -121,6 +130,7 @@ function StatusViewInner({ jobId }: { jobId: string }) {
     checkpoint?.breakpoints ?? s.job?.breakpoints,
     checkpoint ? observedAt : 0,
     onResumed,
+    onPaused,
   );
   const order = stageOrderOf(s.job);
   const breakable = breakableStages(order, s.stages);
@@ -207,7 +217,7 @@ function StatusViewInner({ jobId }: { jobId: string }) {
                     jobId={jobId}
                     map={recutMap}
                     initial={recut.initial}
-                    pausing={phase === "pausing"}
+                    pausing={status === "pausing"}
                     onPause={() => void controls.pause()}
                     onStarted={onRecutStarted}
                     onClose={closeRecut}
@@ -244,7 +254,6 @@ function StatusViewInner({ jobId }: { jobId: string }) {
                   className="mb-6"
                 >
                   <PausePanel
-                    phase={phase as "pausing" | "paused"}
                     checkpoint={checkpoint}
                     live={live}
                     controls={controls}
@@ -266,7 +275,7 @@ function StatusViewInner({ jobId }: { jobId: string }) {
                   jobId={jobId}
                   stages={s.stages}
                   currentStage={s.currentStage}
-                  status={s.status}
+                  status={status}
                   job={s.job}
                   live={live}
                   trackControls={trackControls}
@@ -297,7 +306,7 @@ function StatusViewInner({ jobId }: { jobId: string }) {
       </div>
       {showControls && (phase === "running" || held) && (
         <RunControlDock
-          phase={phase as "running" | "pausing" | "paused"}
+          phase={phase as "running" | "paused"}
           checkpoint={checkpoint}
           controls={controls}
           stages={s.stages}

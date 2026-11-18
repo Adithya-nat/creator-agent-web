@@ -4,7 +4,7 @@
 
 import type { Checkpoint, JobStatus, StageRef, UnitProgress } from "@/lib/types";
 
-export type ControlPhase = "idle" | "running" | "pausing" | "paused" | "finished";
+export type ControlPhase = "idle" | "running" | "paused" | "finished";
 
 export function controlPhase(status: JobStatus | null): ControlPhase {
   switch (status) {
@@ -13,8 +13,7 @@ export function controlPhase(status: JobStatus | null): ControlPhase {
       return "idle";
     case "running":
       return "running";
-    case "pausing":
-      return "pausing";
+    case "pausing": // the server parks it within moments; to the user it's paused already
     case "paused":
       return "paused";
     default:
@@ -110,12 +109,17 @@ export function unitTiles(units: UnitProgress, resumeUnit: number | null): UnitT
   }));
 }
 
-/** While pausing: what is still finishing, in plain words. */
-export function drainSummary(cp: Checkpoint | null): string {
-  const flying = cp?.stages.flatMap((s) => (s.units?.in_flight.length ? [[s.name, s.units.in_flight.length] as const] : [])) ?? [];
-  if (!flying.length) return "Finishing the current step, then pausing";
-  const [stage, n] = flying[0];
-  return `Finishing ${n} ${unitWord(stage, n)} already paid for, then pausing`;
+/** Paid units submitted before the pause and still landing in the background. */
+export function landingCount(cp: Checkpoint | null): number {
+  return cp?.stages.reduce((n, s) => n + (s.units?.in_flight.length ?? 0), 0) ?? 0;
+}
+
+/** Once paused: paid work still landing (it's kept), in plain words. Null when none. */
+export function landingNote(cp: Checkpoint | null): string | null {
+  const st = cp?.stages.find((s) => s.units?.in_flight.length);
+  const n = st?.units?.in_flight.length ?? 0;
+  if (!st || !n) return null;
+  return `${n} ${unitWord(st.name, n)} already paid for ${n === 1 ? "is" : "are"} still landing and will be kept`;
 }
 
 /** Stages that can still take a breakpoint: not started yet (or the paused one). */

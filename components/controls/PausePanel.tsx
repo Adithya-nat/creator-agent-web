@@ -3,24 +3,22 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { Flag } from "lucide-react";
 import { useMemo, useState } from "react";
-import { ENTER, EXIT, rise } from "@/components/production/motion";
+import { ENTER, EXIT } from "@/components/production/motion";
 import { stationFor } from "@/components/production/stations";
 import { Spinner } from "@/components/Spinner";
 import type { RunControls } from "@/hooks/useRunControls";
 import { api } from "@/lib/api";
 import type { LiveAssets } from "@/lib/live";
-import { drainSummary, resumeTarget, stageShort } from "@/lib/runControls";
+import { landingNote, resumeTarget, stageShort } from "@/lib/runControls";
 import type { Checkpoint } from "@/lib/types";
 import { BreakpointPicker } from "./BreakpointPicker";
 import { CostLedger } from "./CostLedger";
 import { PauseEmblem, TransportGlyph } from "./primitives";
 import { ResumeMap } from "./ResumeMap";
 
-/** The pause/resume panel: while a pause drains it shows what is still finishing
- *  (and lets you change your mind); once parked it shows exactly where the film
- *  stopped, what is kept, what is left to pay, and where Resume picks up. */
+/** The paused film: exactly where it stopped, what is kept, what is left to pay, and
+ *  where Resume picks up. Paid work submitted before the pause shows as still landing. */
 export function PausePanel({
-  phase,
   checkpoint,
   live,
   controls,
@@ -28,7 +26,6 @@ export function PausePanel({
   breakable,
   reduced,
 }: {
-  phase: "pausing" | "paused";
   checkpoint: Checkpoint | null;
   live: LiveAssets | null;
   controls: RunControls;
@@ -46,52 +43,46 @@ export function PausePanel({
   );
   const dept = stage ? stationFor(stage).dept : null;
   const busy = controls.busy;
-  const canFinishWithStills =
-    phase === "paused" && stage === "motion" && (units?.done.length ?? 0) > 0 && (units?.pending.length ?? 0) > 0;
+  const landing = landingNote(checkpoint);
+  const canFinishWithStills = stage === "motion" && (units?.done.length ?? 0) > 0 && (units?.pending.length ?? 0) > 0;
 
   return (
     <motion.section
       layout
-      aria-label={phase === "paused" ? "Paused film" : "Pausing film"}
+      aria-label="Paused film"
       className="glass relative overflow-hidden p-5 sm:p-6"
       transition={{ layout: { duration: 0.3, ease: [0.2, 0, 0, 1] } }}
     >
       {/* Amber leader along the top edge: the panel's state colour. */}
       <span aria-hidden className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-state-warn/80 to-transparent" />
 
-      <div className="relative min-h-[60px]">
-        <AnimatePresence mode="popLayout" initial={false}>
-          {phase === "paused" ? (
-            <motion.header key="paused" {...rise} transition={ENTER} className="flex items-start gap-4">
-              <PauseEmblem />
-              <div className="min-w-0">
-                <p className="font-mono text-[11px] tracking-[0.18em] text-state-warn">PAUSED</p>
-                <h2 className="font-display text-[28px] font-extrabold uppercase leading-8 tracking-wide text-ink">
-                  {dept ? `At ${dept}` : "Film on hold"}
-                </h2>
-                <p className="mt-1 text-sm text-muted">
-                  {target.detail || checkpoint?.paused_message || "Everything finished so far is kept."}
-                </p>
-              </div>
-            </motion.header>
-          ) : (
-            <motion.header key="pausing" {...rise} transition={ENTER} className="flex items-start gap-4">
-              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-state-warn/12 text-state-warn shadow-[0_0_0_1px_rgba(232,197,71,0.35)]">
-                <TransportGlyph icon="draining" />
-              </span>
-              <div className="min-w-0">
-                <p className="font-mono text-[11px] tracking-[0.18em] text-state-warn">PAUSING</p>
-                <h2 className="font-display text-[28px] font-extrabold uppercase leading-8 tracking-wide text-ink">
-                  Wrapping up {dept ? stageShort(stage!) : "this step"}
-                </h2>
-                <p className="mt-1 text-sm text-muted">
-                  {drainSummary(checkpoint)}. Nothing new starts, and you aren&apos;t charged for anything extra.
-                </p>
-              </div>
-            </motion.header>
-          )}
-        </AnimatePresence>
-      </div>
+      <header className="flex min-h-[60px] items-start gap-4">
+        <PauseEmblem />
+        <div className="min-w-0">
+          <p className="font-mono text-[11px] tracking-[0.18em] text-state-warn">PAUSED</p>
+          <h2 className="font-display text-[28px] font-extrabold uppercase leading-8 tracking-wide text-ink">
+            {dept ? `At ${dept}` : "Film on hold"}
+          </h2>
+          <p className="mt-1 text-sm text-muted">
+            {target.detail || checkpoint?.paused_message || "Everything finished so far is kept."}
+          </p>
+          <AnimatePresence initial={false}>
+            {landing && (
+              <motion.p
+                key="landing"
+                role="status"
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0, transition: ENTER }}
+                exit={{ opacity: 0, transition: EXIT }}
+                className="mt-2 inline-flex items-center gap-2 text-xs text-muted"
+              >
+                <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-accent animate-pulseGlow" />
+                {landing}
+              </motion.p>
+            )}
+          </AnimatePresence>
+        </div>
+      </header>
 
       <div className="mt-5 grid gap-4 md:grid-cols-[1fr_280px] md:items-start">
         <div className="min-w-0">
@@ -105,29 +96,16 @@ export function PausePanel({
       </div>
 
       <div className="mt-5 flex flex-wrap items-center gap-3">
-        {phase === "paused" ? (
-          <button
-            type="button"
-            onClick={() => void controls.resume()}
-            disabled={busy !== null}
-            aria-keyshortcuts="p"
-            className="press inline-flex min-h-11 items-center gap-2 rounded-full bg-accent pl-4 pr-5 text-sm font-semibold text-midnight hover:bg-accent-hover disabled:opacity-50"
-          >
-            {busy === "resume" ? <Spinner /> : <TransportGlyph icon="play" className="h-4 w-4" />}
-            {target.label}
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={() => void controls.resume()}
-            disabled={busy !== null}
-            aria-keyshortcuts="p"
-            className="press inline-flex min-h-11 items-center gap-2 rounded-full bg-accent pl-4 pr-5 text-sm font-semibold text-midnight hover:bg-accent-hover disabled:opacity-50"
-          >
-            {busy === "withdraw" ? <Spinner /> : <TransportGlyph icon="play" className="h-4 w-4" />}
-            Keep going
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={() => void controls.resume()}
+          disabled={busy !== null}
+          aria-keyshortcuts="p"
+          className="press inline-flex min-h-11 items-center gap-2 rounded-full bg-accent pl-4 pr-5 text-sm font-semibold text-midnight hover:bg-accent-hover disabled:opacity-50"
+        >
+          {busy === "resume" ? <Spinner /> : <TransportGlyph icon="play" className="h-4 w-4" />}
+          {target.label}
+        </button>
         {canFinishWithStills && (
           <button
             type="button"

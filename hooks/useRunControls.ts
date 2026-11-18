@@ -3,12 +3,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAccount } from "@/components/account/AccountProvider";
 import { api, ApiError } from "@/lib/api";
-import { BreakpointSync, controlPhase } from "@/lib/runControls";
+import { BreakpointSync, controlPhase, landingCount } from "@/lib/runControls";
 import type { Checkpoint, JobStatus } from "@/lib/types";
 
-/** How often to refresh the checkpoint per phase: fast while a pause drains (the
- *  in-flight tiles tick over), slow while running, once when parked. */
-const POLL_MS: Record<string, number | null> = { pausing: 1200, running: 4000, paused: null };
+/** How often to refresh the checkpoint: slow while running; once paused, only while
+ *  paid units submitted before the pause are still landing (their tiles tick over). */
+const RUNNING_MS = 4000;
+const LANDING_MS = 1500;
 const RETRY_MS = 3000; // after a transient failure, in every phase (paused included)
 
 /** The job's checkpoint (per-unit state + cost to finish). Null until it lands, and
@@ -26,10 +27,11 @@ export function useCheckpoint(jobId: string, status: JobStatus | null, nonce = 0
     let timer: ReturnType<typeof setTimeout> | null = null;
     const tick = async () => {
       const started = Date.now();
-      let every = POLL_MS[phase];
+      let every: number | null = phase === "running" ? RUNNING_MS : null;
       try {
         const next = await api.getCheckpoint(jobId);
         if (!cancelled) setState({ cp: next, observedAt: started });
+        if (phase === "paused" && (next.status === "pausing" || landingCount(next) > 0)) every = LANDING_MS;
       } catch (e) {
         if (e instanceof ApiError && e.status === 404) {
           if (!cancelled) setSupported(false);
@@ -49,13 +51,13 @@ export function useCheckpoint(jobId: string, status: JobStatus | null, nonce = 0
   return { checkpoint: state.cp, observedAt: state.observedAt, supported };
 }
 
-export type ControlAction = "pause" | "resume" | "withdraw" | "finish" | null;
+export type ControlAction = "pause" | "resume" | "finish" | null;
 
 export interface RunControls {
   busy: ControlAction;
   error: string | null;
   pause: () => Promise<boolean>;
-  /** Resume a paused job, or withdraw a pause that is still draining. */
+  /** Resume a paused job (or withdraw a pause the server hasn't parked yet). */
   resume: (opts?: { allowStills?: boolean }) => Promise<boolean>;
   breakpoints: string[];
   setBreakpoints: (stages: string[]) => void;
@@ -81,6 +83,8 @@ export function useRunControls(
   /** When the request that read ``serverBreakpoints`` started (ms; 0 = unknown). */
   observedAt: number,
   onResumed: () => void,
+  /** Called as soon as the server accepts a pause, so the page can show it at once. */
+  onPaused: () => void,
 ): RunControls {
   const { needsKey, hasKey, openKeyDialog } = useAccount();
   const [busy, setBusy] = useState<ControlAction>(null);
@@ -114,6 +118,7 @@ export function useRunControls(
     setError(null);
     try {
       await api.pauseJob(jobId);
+      onPaused();
       return true;
     } catch (e) {
       fail(e);
@@ -121,19 +126,19 @@ export function useRunControls(
     } finally {
       setBusy(null);
     }
-  }, [jobId]);
+  }, [jobId, onPaused]);
 
   const resume = useCallback(
     async (opts?: { allowStills?: boolean }) => {
-      const draining = status === "pausing";
+      const parking = status === "pausing";
       // A parked film resumes as a new run, which needs the tester's key (BYOK).
-      // Withdrawing a pause doesn't: the draining run keeps the key it has.
-      if (!draining && needsKey && !hasKey) {
+      // Withdrawing a pause the server hasn't parked yet doesn't: that run keeps its key.
+      if (!parking && needsKey && !hasKey) {
         setError(MESSAGES[400]);
         openKeyDialog();
         return false;
       }
-      setBusy(opts?.allowStills ? "finish" : draining ? "withdraw" : "resume");
+      setBusy(opts?.allowStills ? "finish" : "resume");
       setError(null);
       try {
         const res = await api.resumeJob(jobId, opts);
@@ -148,9 +153,9 @@ export function useRunControls(
           if (res.status === 400) openKeyDialog();
           throw new ApiError(res.status, detail || "Couldn't resume the film.");
         }
-        // Withdrawing a pause keeps the same live stream; a parked job's stream has
-        // closed, so re-subscribe to watch the new run.
-        if (!draining) onResumed();
+        // Re-subscribe either way: a parked job's stream has closed, and a withdrawn
+        // pause just reconnects to the same run.
+        onResumed();
         return true;
       } catch (e) {
         fail(e);

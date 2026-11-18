@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, animate, motion, useMotionValue } from "framer-motion";
-import { Loader, Pause, Play } from "lucide-react";
+import { Pause, Play } from "lucide-react";
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { EASE } from "@/components/production/motion";
@@ -50,11 +50,11 @@ export function AnimatedNumber({
   );
 }
 
-export type TransportIcon = "pause" | "play" | "draining";
+export type TransportIcon = "pause" | "play";
 
-const ICONS = { pause: Pause, play: Play, draining: Loader };
+const ICONS = { pause: Pause, play: Play };
 
-/** Pause / play / draining glyph that cross-fades on an infrequent state change:
+/** Pause / play glyph that cross-fades on an infrequent state change:
  *  scale 0.25 -> 1, opacity 0 -> 1, blur 4px -> 0, spring 0.3s with no bounce. */
 export function TransportGlyph({ icon, className = "h-5 w-5" }: { icon: TransportIcon; className?: string }) {
   const Icon = ICONS[icon];
@@ -70,11 +70,11 @@ export function TransportGlyph({ icon, className = "h-5 w-5" }: { icon: Transpor
           transition={{ type: "spring", duration: 0.3, bounce: 0 }}
         >
           <Icon
-            className={`${className} ${icon === "draining" ? "animate-spin [animation-duration:1.6s]" : ""} ${
+            className={`${className} ${
               icon === "play" ? "translate-x-[1px]" /* optical: nudge the triangle toward its point */ : ""
             }`}
             strokeWidth={2.25}
-            fill={icon === "draining" ? "none" : "currentColor"}
+            fill="currentColor"
           />
         </motion.span>
       </AnimatePresence>

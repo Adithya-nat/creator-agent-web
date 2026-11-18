@@ -60,10 +60,9 @@ export function ProductionLine({
   pausedNote?: string;
 }) {
   const prefersReduced = usePrefersReducedMotion();
-  // Paused or pausing: the line freezes in place (no continuous motion), so the
-  // still picture itself says "on hold". Pausing still finishes paid work.
-  const paused = status === "paused";
-  const frozen = paused || status === "pausing";
+  // Paused: the line freezes in place (no continuous motion), so the still picture
+  // itself says "on hold". "pausing" is the instant before the server parks it.
+  const paused = status === "paused" || status === "pausing";
   const reduced = prefersReduced || paused;
   const live = useMemo(() => resolveLive(rawLive), [rawLive]);
   const signals = useMemo(
@@ -92,9 +91,7 @@ export function ProductionLine({
     ? "In the queue, the crew is getting ready"
     : paused
       ? `On hold. ${pausedNote ?? "Resume whenever you're ready."}`
-      : status === "pausing"
-        ? "Wrapping up what's already paid for, then holding"
-        : station.action({ live, stage, frames });
+      : station.action({ live, stage, frames });
 
   return (
     <MotionConfig reducedMotion={paused ? "always" : "user"}>
@@ -164,7 +161,7 @@ export function ProductionLine({
           </LayoutGroup>
         </div>
         <AnimatePresence>
-          {frozen && <HoldSlate key="hold" paused={paused} note={pausedNote} />}
+          {paused && <HoldSlate key="hold" note={pausedNote} />}
         </AnimatePresence>
 
         <div className="mt-3">
@@ -173,7 +170,7 @@ export function ProductionLine({
             signals={signals.stages}
             active={active}
             reduced={reduced}
-            frozen={frozen}
+            frozen={paused}
             controls={trackControls}
           />
         </div>
@@ -182,10 +179,9 @@ export function ProductionLine({
   );
 }
 
-/** The slate laid over a frozen monitor: "PAUSING" while paid units finish,
- *  then "PAUSED" with where the film resumes. Sits outside the filtered monitor
- *  so it keeps full colour. */
-function HoldSlate({ paused, note }: { paused: boolean; note?: string }) {
+/** The slate laid over a frozen monitor: "PAUSED" with where the film resumes.
+ *  Sits outside the filtered monitor so it keeps full colour. */
+function HoldSlate({ note }: { note?: string }) {
   return (
     <motion.div
       initial={{ opacity: 0, filter: "blur(4px)", y: 12 }}
@@ -199,9 +195,9 @@ function HoldSlate({ paused, note }: { paused: boolean; note?: string }) {
         </span>
         <div>
           <p className="font-display text-xl font-extrabold uppercase leading-5 tracking-wide text-ink">
-            {paused ? "Paused" : "Pausing"}
+            Paused
           </p>
-          <p className="text-xs text-muted">{paused ? (note ?? "Resume whenever you're ready") : "Finishing what's paid for"}</p>
+          <p className="text-xs text-muted">{note ?? "Resume whenever you're ready"}</p>
         </div>
       </div>
     </motion.div>

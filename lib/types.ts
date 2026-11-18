@@ -8,7 +8,7 @@ export type JobStatus =
   | "completed_with_warnings"
   | "failed"
   | "interrupted"
-  | "pausing" // pause requested: in-flight paid units are finishing
+  | "pausing" // pause requested; the server parks it within moments (shown as paused)
   | "paused"; // parked: resume continues from the first unfinished unit
 
 // "No runner is active": the live stream closes. A paused job is in here (nothing
@@ -100,7 +100,7 @@ export interface UnitProgress {
   noun: string;
   total: number;
   done: number[]; // on disk: reused on resume, never billed again
-  in_flight: number[]; // already submitted and paid; finishing
+  in_flight: number[]; // submitted and paid before the pause; still landing, kept
   pending: number[]; // not started; generated on resume
   unit_cost_usd: number;
 }

@@ -7,7 +7,7 @@ import { ENTER, EXIT } from "@/components/production/motion";
 import { Spinner } from "@/components/Spinner";
 import type { RunControls } from "@/hooks/useRunControls";
 import { formatUSD } from "@/lib/format";
-import { drainSummary, resumeTarget, stageShort, unitWord, type ControlPhase } from "@/lib/runControls";
+import { landingCount, resumeTarget, stageShort, unitWord, type ControlPhase } from "@/lib/runControls";
 import type { Checkpoint, StageRef } from "@/lib/types";
 import { BreakpointPicker } from "./BreakpointPicker";
 import { AnimatedNumber, TransportGlyph, useToast } from "./primitives";
@@ -41,8 +41,9 @@ export function RunControlDock({
   const target = resumeTarget(checkpoint);
   const busy = controls.busy;
 
+  const landing = landingCount(checkpoint);
   const nowLine = (() => {
-    if (phase === "pausing") return drainSummary(checkpoint);
+    if (phase === "paused" && landing) return `${landing} paid ${landing === 1 ? "item" : "items"} still landing, kept`;
     if (phase === "paused")
       return target.unit != null
         ? `Stopped at ${stageShort(target.stage!)}, ${unitWord(target.stage)} ${target.unit} is next`
@@ -60,20 +61,11 @@ export function RunControlDock({
   const act = async () => {
     if (busy) return;
     if (phase === "running") {
-      const flying = checkpoint?.stages.find((s) => s.units?.in_flight.length)?.units?.in_flight.length ?? 0;
       if (!(await controls.pause())) {
         toast({ tone: "warn", title: "Couldn't pause", body: "The film may have just finished a step. Try again." });
         return;
       }
-      toast({
-          tone: "warn",
-          title: "Pausing",
-          body: flying
-            ? `Nothing new starts. ${flying} ${flying === 1 ? "item" : "items"} already paid for will finish and be kept.`
-            : "Nothing new starts. The current step wraps up, then the film waits for you.",
-        });
-    } else if (phase === "pausing") {
-      if (await controls.resume()) toast({ tone: "ok", title: "Back to work", body: "Pause cancelled. Nothing was lost." });
+      toast({ tone: "warn", title: "Paused", body: "Everything finished so far is kept. Resume whenever you're ready." });
     } else if (await controls.resume()) {
       toast({ tone: "ok", title: target.label.replace("Resume", "Resuming"), body: "Finished work is reused, never billed twice." });
     }
@@ -110,9 +102,9 @@ export function RunControlDock({
     };
   }, [open]);
 
-  const label = phase === "running" ? "Pause" : phase === "pausing" ? "Keep going" : target.label;
+  const label = phase === "running" ? "Pause" : target.label;
   const icon = phase === "running" ? "pause" : "play";
-  const working = busy === "pause" || busy === "resume" || busy === "withdraw";
+  const working = busy === "pause" || busy === "resume";
 
   return (
     <motion.div
@@ -166,15 +158,6 @@ export function RunControlDock({
                 : "bg-accent text-midnight hover:bg-accent-hover"
             }`}
           >
-            {phase === "pausing" && (
-              // Draining sweep: a light band crossing the button while units finish.
-              <motion.span
-                aria-hidden
-                className="absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-transparent via-white/35 to-transparent"
-                animate={{ x: ["-100%", "250%"] }}
-                transition={{ duration: 1.6, ease: "easeInOut", repeat: Infinity }}
-              />
-            )}
             <span className="relative grid h-5 w-5 place-items-center">
               {working ? <Spinner className="h-4 w-4" /> : <TransportGlyph icon={icon} className="h-4 w-4" />}
             </span>
@@ -190,7 +173,7 @@ export function RunControlDock({
                 exit={{ opacity: 0, y: -6, transition: { duration: 0.12 } }}
                 className={`font-mono text-[10px] tracking-[0.18em] ${phase === "running" ? "text-accent" : "text-state-warn"}`}
               >
-                {phase === "running" ? "RECORDING" : phase === "pausing" ? "PAUSING" : "PAUSED"}
+                {phase === "running" ? "RECORDING" : "PAUSED"}
               </motion.p>
             </AnimatePresence>
             <p className="truncate text-[13px] text-ink/90">{nowLine}</p>

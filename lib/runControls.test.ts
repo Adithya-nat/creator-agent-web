@@ -4,7 +4,8 @@ import {
   breakableStages,
   controlPhase,
   costSplit,
-  drainSummary,
+  landingCount,
+  landingNote,
   resumeTarget,
   toggleStage,
   unitTiles,
@@ -51,7 +52,7 @@ const stage = (name: string, status: StageRef["status"]): StageRef => ({
 describe("controlPhase", () => {
   it("maps statuses to the control the dock shows", () => {
     expect(controlPhase("running")).toBe("running");
-    expect(controlPhase("pausing")).toBe("pausing");
+    expect(controlPhase("pausing")).toBe("paused"); // pause is instant to the user
     expect(controlPhase("paused")).toBe("paused");
     expect(controlPhase("queued")).toBe("idle");
     expect(controlPhase("completed")).toBe("finished");
@@ -90,13 +91,16 @@ describe("unitTiles", () => {
   });
 });
 
-describe("drainSummary", () => {
-  it("counts what is still finishing", () => {
+describe("landingNote", () => {
+  it("counts paid units still landing after the pause", () => {
     const c = cp({ stages: [{ ...cp().stages[0], units: { ...cp().stages[0].units!, in_flight: [3, 4] } }] });
-    expect(drainSummary(c)).toBe("Finishing 2 scenes already paid for, then pausing");
+    expect(landingNote(c)).toBe("2 scenes already paid for are still landing and will be kept");
+    expect(landingCount(c)).toBe(2);
   });
-  it("has a generic line otherwise", () => {
-    expect(drainSummary(null)).toBe("Finishing the current step, then pausing");
+  it("says nothing when nothing is in flight", () => {
+    expect(landingNote(null)).toBeNull();
+    expect(landingNote(cp())).toBeNull();
+    expect(landingCount(null)).toBe(0);
   });
 });
 
